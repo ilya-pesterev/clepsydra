@@ -10,6 +10,7 @@
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleVersion</key>         <string>1</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>NSHumanReadableCopyright</key>   <string>© Илья Пестерев</string>
     <key>LSMinimumSystemVersion</key>  <string>14.0</string>
     <key>LSUIElement</key>             <true/>
     <key>NSHighResolutionCapable</key> <true/>

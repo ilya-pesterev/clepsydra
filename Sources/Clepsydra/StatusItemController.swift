@@ -11,6 +11,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let reset: () -> Void
         let toggleLaunchAtLogin: () -> Void
         let setMode: (QuoteMode) -> Void
+        let showAbout: () -> Void
         let quit: () -> Void
     }
 
@@ -61,7 +62,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         switch phase {
         case .idle:
-            menu.addItem(entry("Начать помидор", #selector(start)))
+            menu.addItem(entry("Запустить сессию", #selector(start)))
         case .pomodoro, .onBreak:
             menu.addItem(entry("Сбросить", #selector(reset)))
         case .awaitingBreak, .awaitingPomodoro:
@@ -90,6 +91,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(launch)
 
         menu.addItem(.separator())
+        menu.addItem(entry("О программе", #selector(showAbout)))
         menu.addItem(entry("Выйти", #selector(quit)))
     }
 
@@ -104,5 +106,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func toggleLaunchAtLogin() { actions.toggleLaunchAtLogin() }
     @objc private func selectPhilosophers() { actions.setMode(.philosophers) }
     @objc private func selectStatham() { actions.setMode(.statham) }
+    @objc private func showAbout() { actions.showAbout() }
     @objc private func quit() { actions.quit() }
 }

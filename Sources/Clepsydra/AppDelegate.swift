@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reset: { [weak self] in self?.update { $0.reset() } },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
             setMode: { [weak self] in self?.setMode($0) },
+            showAbout: { About.show() },
             quit: { NSApp.terminate(nil) }
         ))
 
