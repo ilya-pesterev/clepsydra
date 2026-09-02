@@ -97,37 +97,25 @@ struct OverlayView: View {
     // MARK: Наклейки
 
     private func stickers(_ quote: StickerQuote, palette: StickerPalette, photo: NSImage?) -> some View {
-        ZStack {
-            // Фигура прижата к правому нижнему углу и вылетает за края:
-            // так она выглядит наклеенной поверх, а не вставленной внутрь.
+        VStack(spacing: 0) {
+            Spacer()
+
+            // Фигура целиком на экране, а не вылетает за край: над текстом
+            // обрезанная снизу фигура читается не как наклеенная поверх,
+            // а просто как обрезанная.
             if let photo {
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    HStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        DieCutPhoto(photo: photo, ring: 0.9 * unit)
-                            .frame(width: 32 * unit)
-                            .rotationEffect(.degrees(3))
-                            .padding(.trailing, 1.5 * unit)
-                            .padding(.bottom, -unit)
-                    }
-                }
+                DieCutPhoto(photo: photo, ring: 0.9 * unit)
+                    .frame(height: 15 * unit)
+                    .padding(.bottom, 2.4 * unit)
             }
 
-            // Реплика: с фигурой — слева, без неё — по центру.
-            HStack(spacing: 0) {
-                StickerQuoteView(quote: quote, palette: palette, unit: unit)
-                if photo != nil { Spacer(minLength: 0) }
-            }
-            .padding(.leading, photo != nil ? 6 * unit : 0)
-            .padding(.bottom, 9 * unit)
+            StickerQuoteView(quote: quote, palette: palette, unit: unit)
 
-            VStack(spacing: 0) {
-                Spacer()
-                footer
-            }
-            .padding(.bottom, 72)
+            Spacer()
+
+            footer
         }
+        .padding(.bottom, 72)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -172,69 +160,47 @@ struct OverlayView: View {
 }
 
 /// Реплика наклейками: каждая строка — своя плашка со своим наклоном и
-/// отступом. Наклеены по одной, а не набраны абзацем.
+/// смещением. Наклеены по одной, а не набраны абзацем.
 private struct StickerQuoteView: View {
 
     let quote: StickerQuote
     let palette: StickerPalette
     let unit: CGFloat
 
-    /// Наклоны и отступы повторяются по кругу — так строки не выстраиваются
-    /// в ровную колонку, но и не пляшут случайно при каждом показе.
+    /// Наклоны и смещения повторяются по кругу — так строки не выстраиваются
+    /// по линейке, но и не пляшут случайно при каждом показе. Смещения
+    /// разнонаправленные: лесенка вправо превратила бы колонку в кашу.
     private static let tilts: [Double] = [-2.1, 1.1, -1.2, 0.8]
-    private static let insets: [CGFloat] = [0, 3.4, 1.1, 2.6]
+    private static let shifts: [CGFloat] = [-1.1, 1.4, -0.6, 0.9]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0.75 * unit) {
+        VStack(spacing: 0.7 * unit) {
             ForEach(Array(quote.lines.enumerated()), id: \.offset) { index, line in
                 pill(line, isLast: index == quote.lines.count - 1)
                     .rotationEffect(.degrees(Self.tilts[index % Self.tilts.count]))
-                    .padding(.leading, Self.insets[index % Self.insets.count] * unit)
+                    .offset(x: Self.shifts[index % Self.shifts.count] * unit)
             }
-
-            signature
-                .padding(.top, 1.9 * unit)
-                .padding(.leading, 1.6 * unit)
         }
     }
 
     /// Последняя строка — ударная, поэтому другого цвета. Одностроч­ная реплика
     /// вся ударная: делить в ней нечего.
     private func pill(_ line: String, isLast: Bool) -> some View {
-        let useAccent = isLast
-        return Text(line)
-            .font(.system(size: 3.4 * unit, weight: .black, design: .rounded))
-            .foregroundStyle(useAccent ? palette.accentInk : palette.baseInk)
-            .padding(.horizontal, 2.6 * unit)
-            .padding(.vertical, 1.45 * unit)
-            .background(Capsule().fill(useAccent ? palette.accent : palette.base))
+        Text(line)
+            .font(.system(size: 2.9 * unit, weight: .black, design: .rounded))
+            .foregroundStyle(isLast ? palette.accentInk : palette.baseInk)
+            .padding(.horizontal, 2.4 * unit)
+            .padding(.top, 1.15 * unit)
+            .padding(.bottom, 1.35 * unit)
+            .background(Capsule().fill(isLast ? palette.accent : palette.base))
             // Кант — не обводка внутрь, а белая капсула снаружи: она шире
             // ровно на толщину канта и повторяет то же скругление.
-            .padding(0.66 * unit)
+            .padding(0.55 * unit)
             .background(Capsule().fill(.white))
             // Без схлопывания тень ложится на каждый слой фона отдельно, и
             // внутренняя цветная капсула затеняет белый кант до серого.
             .compositingGroup()
-            .shadow(color: .black.opacity(0.55), radius: 1.5 * unit, y: 0.9 * unit)
-    }
-
-    private var signature: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0.7 * unit) {
-            Text("Джейсон Стетхем")
-                .font(.system(size: 1.25 * unit, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-            Text("не говорил, но мог бы")
-                .font(.system(size: 0.95 * unit, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.45))
-        }
-        .padding(.horizontal, 1.5 * unit)
-        .padding(.vertical, 0.75 * unit)
-        .background(Capsule().fill(Color(red: 0.063, green: 0.063, blue: 0.071)))
-        .padding(0.38 * unit)
-        .background(Capsule().fill(.white))
-        .compositingGroup()
-        .shadow(color: .black.opacity(0.5), radius: 1 * unit, y: 0.6 * unit)
-        .rotationEffect(.degrees(1.7))
+            .shadow(color: .black.opacity(0.55), radius: 1.4 * unit, y: 0.85 * unit)
     }
 }
 
