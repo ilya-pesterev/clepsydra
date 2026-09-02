@@ -11,7 +11,7 @@ struct OverlayAction: Identifiable {
 
 /// Что показываем: тихую цитату философа или наклейки.
 enum OverlayContent {
-    case philosopher(Quote)
+    case philosopher(Quote, portrait: NSImage?)
     case sticker(StickerQuote, palette: StickerPalette, photo: NSImage?)
 }
 
@@ -47,8 +47,8 @@ struct OverlayView: View {
             Color.black
 
             switch model.content {
-            case .philosopher(let quote):
-                philosopher(quote)
+            case .philosopher(let quote, let portrait):
+                philosopher(quote, portrait: portrait)
             case .sticker(let quote, let palette, let photo):
                 stickers(quote, palette: palette, photo: photo)
             }
@@ -57,7 +57,35 @@ struct OverlayView: View {
 
     // MARK: Философы — как было
 
-    private func philosopher(_ quote: Quote) -> some View {
+    private func philosopher(_ quote: Quote, portrait: NSImage?) -> some View {
+        ZStack {
+            // Портрет — противоположность наклейке: ни канта, ни цвета, ни
+            // тени. Обесцвечен и приглушён до присутствия, а не до картинки.
+            if let portrait {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        Image(nsImage: portrait)
+                            .resizable()
+                            .scaledToFit()
+                            .grayscale(1)
+                            .opacity(0.3)
+                            .frame(width: 30 * unit)
+                            .padding(.trailing, 2 * unit)
+                    }
+                }
+            }
+
+            quoteColumn(quote)
+                // Освобождаем место под портрет, иначе на узком мониторе
+                // строки цитаты налезут на него.
+                .padding(.trailing, portrait != nil ? 30 * unit : 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func quoteColumn(_ quote: Quote) -> some View {
         VStack(spacing: 0) {
             Spacer()
 

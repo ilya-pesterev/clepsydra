@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             start: { [weak self] in self?.update { $0.start(at: Date()) } },
             reset: { [weak self] in self?.update { $0.reset() } },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
-            toggleStathamMode: { [weak self] in self?.toggleStathamMode() },
+            setMode: { [weak self] in self?.setMode($0) },
             quit: { NSApp.terminate(nil) }
         ))
 
@@ -121,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .philosophers:
             let quote = Quotes.next(after: lastQuote)
             lastQuote = quote
-            return .philosopher(quote)
+            return .philosopher(quote, portrait: PhilosopherPortraits.image(for: quote.author))
         case .statham:
             let quote = StathamQuotes.next(after: lastSticker)
             lastSticker = quote
@@ -129,9 +129,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func toggleStathamMode() {
-        mode = mode == .statham ? .philosophers : .statham
-        Settings.quoteMode = mode
+    private func setMode(_ newMode: QuoteMode) {
+        guard newMode != mode else { return }
+        mode = newMode
+        Settings.quoteMode = newMode
         // Экран, который висит прямо сейчас, переобувать не станем: человек
         // читает его в эту секунду. Переключатель сработает со следующего.
     }

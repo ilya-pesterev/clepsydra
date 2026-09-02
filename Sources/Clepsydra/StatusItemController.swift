@@ -10,7 +10,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let start: () -> Void
         let reset: () -> Void
         let toggleLaunchAtLogin: () -> Void
-        let toggleStathamMode: () -> Void
+        let setMode: (QuoteMode) -> Void
         let quit: () -> Void
     }
 
@@ -71,9 +71,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let statham = entry("Режим Стетхема", #selector(toggleStathamMode))
-        statham.state = Settings.quoteMode == .statham ? .on : .off
+        // Режимы — группой с галочкой у выбранного: так видно, что их два и
+        // какой сейчас работает. Одного переключателя для этого мало.
+        let mode = Settings.quoteMode
+
+        let philosophers = entry("Режим философов", #selector(selectPhilosophers))
+        philosophers.state = mode == .philosophers ? .on : .off
+        menu.addItem(philosophers)
+
+        let statham = entry("Режим Стетхема", #selector(selectStatham))
+        statham.state = mode == .statham ? .on : .off
         menu.addItem(statham)
+
+        menu.addItem(.separator())
 
         let launch = entry("Запускать при входе", #selector(toggleLaunchAtLogin))
         launch.state = LaunchAtLogin.isEnabled ? .on : .off
@@ -92,6 +102,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func start() { actions.start() }
     @objc private func reset() { actions.reset() }
     @objc private func toggleLaunchAtLogin() { actions.toggleLaunchAtLogin() }
-    @objc private func toggleStathamMode() { actions.toggleStathamMode() }
+    @objc private func selectPhilosophers() { actions.setMode(.philosophers) }
+    @objc private func selectStatham() { actions.setMode(.statham) }
     @objc private func quit() { actions.quit() }
 }

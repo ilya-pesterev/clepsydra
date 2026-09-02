@@ -79,6 +79,21 @@ public enum Quotes {
         Quote("Мы никогда не бываем дома. Мы всегда где-то дальше.", "Монтень")
     ]
 
+    /// Имя файла с портретом для каждого автора. Латиницей — чтобы не зависеть
+    /// от того, как файловая система нормализует кириллицу в именах.
+    public static let portraits: [String: String] = [
+        "Сунь-Цзы":      "sun-tzu",
+        "Марк Аврелий":  "marcus-aurelius",
+        "Сенека":        "seneca",
+        "Эпиктет":       "epictetus",
+        "Лао-цзы":       "lao-tzu",
+        "Монтень":       "montaigne"
+    ]
+
+    public static func portraitName(for author: String) -> String? {
+        portraits[author]
+    }
+
     /// Случайная цитата, но не та же, что была на прошлом экране: два одинаковых
     /// подряд читаются как поломка.
     public static func next(after previous: Quote?) -> Quote {

@@ -255,6 +255,17 @@ t.test("Следующая цитата никогда не равна пред�
     }
 }
 
+t.test("У каждого автора есть имя файла с портретом") {
+    let authors = Set(Quotes.all.map(\.author))
+    let unmapped = authors.filter { Quotes.portraitName(for: $0) == nil }.sorted()
+    t.expect(unmapped, [], "иначе портрет молча не найдётся")
+    t.expect(Set(Quotes.portraits.keys), authors, "лишние записи так же вредны, как недостающие")
+}
+
+t.test("Имена файлов не повторяются") {
+    t.expect(Set(Quotes.portraits.values).count, Quotes.portraits.count)
+}
+
 // MARK: Режим Стетхема
 
 t.test("Семнадцать реплик, все разбиты на строки") {

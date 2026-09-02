@@ -40,6 +40,14 @@ if [[ -d Resources/statham ]]; then
 else
     echo "    Resources/statham нет — режим Стетхема покажет наклейки без фигуры"
 fi
+
+# Портреты философов — по имени автора латиницей, см. Quotes.portraits.
+if [[ -d Resources/philosophers ]]; then
+    cp -R Resources/philosophers "$APP/Contents/Resources/philosophers"
+    echo "    портретов философов: $(ls Resources/philosophers | wc -l | tr -d ' ')"
+else
+    echo "    Resources/philosophers нет — философский режим покажет цитату без портрета"
+fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 if [[ "$RELEASE" == false ]]; then

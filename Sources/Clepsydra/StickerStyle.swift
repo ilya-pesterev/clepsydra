@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ClepsydraCore
 
 /// Пара цветов на одну реплику: основной для строк и ударный для последней.
 /// Цвет меняется там, где меняется смысл, а не ради пестроты.
@@ -48,4 +49,22 @@ enum StathamPhotos {
     }()
 
     static func random() -> NSImage? { all.randomElement() }
+}
+
+/// Портреты философов. Лежат в бандле по имени автора латиницей; если файла
+/// нет, режим работает как раньше — одна цитата на чёрном.
+enum PhilosopherPortraits {
+
+    private static var cache: [String: NSImage?] = [:]
+
+    static func image(for author: String) -> NSImage? {
+        guard let name = Quotes.portraitName(for: author) else { return nil }
+        if let cached = cache[name] { return cached }
+
+        let image = Bundle.main.resourceURL
+            .map { $0.appendingPathComponent("philosophers/\(name).png") }
+            .flatMap { NSImage(contentsOf: $0) }
+        cache[name] = image
+        return image
+    }
 }
