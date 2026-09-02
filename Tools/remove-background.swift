@@ -5,8 +5,9 @@
 //   swift Tools/remove-background.swift Resources/statham/*.png
 //
 // Работает через Vision — тот же механизм, что у «Удалить фон» в Просмотре.
-// Результат перезаписывает исходный файл, обрезая его по контуру фигуры,
-// поэтому оригиналы сначала стоит отложить в сторону.
+// Принимает любой формат, который читает система, и всегда пишет рядом PNG:
+// без альфа-канала белый кант считать не из чего. Исходник другого формата
+// после этого удаляется, поэтому оригиналы стоит отложить в сторону.
 
 import AppKit
 import Vision
@@ -64,9 +65,14 @@ for url in files {
             failures += 1
             continue
         }
-        try png.write(to: url)
+        let target = url.deletingPathExtension().appendingPathExtension("png")
+        try png.write(to: target)
+        if target != url {
+            try? FileManager.default.removeItem(at: url)
+        }
         let size = cut.extent
-        print("✓ \(name): фигур \(result.allInstances.count), обрезано до \(Int(size.width))×\(Int(size.height))")
+        print("✓ \(name) → \(target.lastPathComponent): фигур \(result.allInstances.count), "
+              + "обрезано до \(Int(size.width))×\(Int(size.height))")
     } catch {
         print("✗ \(name): \(error.localizedDescription)")
         failures += 1

@@ -58,36 +58,20 @@ struct OverlayView: View {
     // MARK: Философы — как было
 
     private func philosopher(_ quote: Quote, portrait: NSImage?) -> some View {
-        ZStack {
-            // Портрет — противоположность наклейке: ни канта, ни цвета, ни
-            // тени. Обесцвечен и приглушён до присутствия, а не до картинки.
-            if let portrait {
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    HStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        Image(nsImage: portrait)
-                            .resizable()
-                            .scaledToFit()
-                            .grayscale(1)
-                            .opacity(0.3)
-                            .frame(width: 30 * unit)
-                            .padding(.trailing, 2 * unit)
-                    }
-                }
-            }
-
-            quoteColumn(quote)
-                // Освобождаем место под портрет, иначе на узком мониторе
-                // строки цитаты налезут на него.
-                .padding(.trailing, portrait != nil ? 30 * unit : 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func quoteColumn(_ quote: Quote) -> some View {
         VStack(spacing: 0) {
             Spacer()
+
+            // Портрет — противоположность наклейке: ни канта, ни тени, ни
+            // цвета. Обесцвечен, чтобы не спорить с тихой антиквой под ним.
+            if let portrait {
+                Image(nsImage: portrait)
+                    .resizable()
+                    .scaledToFit()
+                    .grayscale(1)
+                    .opacity(0.8)
+                    .frame(height: 9 * unit)
+                    .padding(.bottom, 38)
+            }
 
             Text(quote.text)
                 .font(.system(size: 34, weight: .light, design: .serif))
