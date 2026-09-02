@@ -3,6 +3,23 @@
 Помодоро-таймер в меню-баре macOS. 25 минут работы, 5 минут перерыва,
 полноэкранная цитата между ними.
 
+## Установка
+
+Готовой сборки пока нет, приложение собирается из исходников. Нужны Mac на
+Apple Silicon с macOS 14 и Command Line Tools (`xcode-select --install`);
+полный Xcode не требуется.
+
+```bash
+git clone https://github.com/ilya-pesterev/clepsydra.git
+cd clepsydra
+./build.sh
+cp -R Clepsydra.app /Applications/ && open /Applications/Clepsydra.app
+```
+
+Иконка песочных часов появится в меню-баре — ни в Dock, ни в переключателе
+задач приложения нет. Автозапуск включается там же в меню: «Запускать при
+входе».
+
 ## Как это работает
 
 Иконка песочных часов в меню-баре, в меню — «Запустить сессию». Дальше рядом с
@@ -117,17 +134,8 @@ swift Tools/remove-background.swift Resources/statham/*.png
 ./build.sh
 ```
 
-Нужны только Command Line Tools (`swift`), полный Xcode не требуется.
-На выходе — `Clepsydra.app`, чистый arm64, подписанный ad-hoc.
-
-## Установка
-
-```bash
-cp -R Clepsydra.app /Applications/ && open /Applications/Clepsydra.app
-```
-
-Приложение живёт в меню-баре — ни в Dock, ни в переключателе задач его нет.
-Автозапуск включается в меню: «Запускать при входе».
+Пересобирает `Clepsydra.app` — чистый arm64, подписанный ad-hoc. Перед сборкой
+прогоняются тесты.
 
 ## Тесты
 
