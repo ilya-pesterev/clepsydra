@@ -19,9 +19,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             quit: { NSApp.terminate(nil) }
         ))
 
-        // Запасной выход с экрана: работает из любой фазы с экраном и всегда
-        // возвращает в простой.
-        overlay.onEscape = { [weak self] in self?.update { $0.escape() } }
+        // Запасной выход с экрана. Во время перерыва он лишь убирает экран:
+        // отдых продолжается и досчитывает в меню-баре. В остальных случаях —
+        // выводит из круга целиком.
+        overlay.onEscape = { [weak self] in
+            guard let self else { return }
+            if case .onBreak = machine.phase {
+                overlay.dismiss()
+            } else {
+                update { $0.escape() }
+            }
+        }
 
         startTicking()
 
@@ -104,10 +112,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showOverlay(actions: [OverlayAction]) {
         let quote = Quotes.next(after: lastQuote)
         lastQuote = quote
-        overlay.show(quote: quote, actions: actions)
+        overlay.present(quote: quote, actions: actions)
     }
 
     private func refresh() {
-        statusItem.render(phase: machine.phase, remaining: machine.remaining(at: Date()))
+        let now = Date()
+        let remaining = machine.remaining(at: now)
+        statusItem.render(phase: machine.phase, remaining: remaining)
+
+        // Экран, оставшийся на перерыв, показывает тот же отсчёт, что и меню-бар.
+        if case .onBreak = machine.phase, overlay.isVisible, let remaining {
+            overlay.showCountdown(Countdown.text(for: remaining))
+        }
     }
 }

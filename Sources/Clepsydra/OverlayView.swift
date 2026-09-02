@@ -9,43 +9,49 @@ struct OverlayAction: Identifiable {
     let run: () -> Void
 }
 
-/// Экран между помидорами: цитата, автор и кнопки. На мониторах без курсора
-/// кнопок нет — там остаётся только цитата.
+/// Содержимое экрана. Живёт отдельно от окон: за перерыв оно меняется дважды —
+/// кнопка уступает место отсчёту, — а окна при этом остаются те же.
+final class OverlayModel: ObservableObject {
+    @Published var quote: Quote
+    /// Отсчёт перерыва. `nil` — вместо него показываем кнопки.
+    @Published var countdown: String?
+    @Published var actions: [OverlayAction]
+
+    init(quote: Quote, countdown: String? = nil, actions: [OverlayAction] = []) {
+        self.quote = quote
+        self.countdown = countdown
+        self.actions = actions
+    }
+}
+
+/// Экран между помидорами: цитата, автор и то, что сейчас важнее — кнопки или
+/// отсчёт перерыва. Кнопки только на мониторе с курсором; цитата, отсчёт и
+/// подсказка — на всех.
 struct OverlayView: View {
 
-    let quote: Quote
-    let actions: [OverlayAction]
+    @ObservedObject var model: OverlayModel
+    let showsActions: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            Text(quote.text)
+            Text(model.quote.text)
                 .font(.system(size: 34, weight: .light, design: .serif))
                 .foregroundStyle(.white.opacity(0.92))
                 .multilineTextAlignment(.center)
                 .lineSpacing(10)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(quote.author)
+            Text(model.quote.author)
                 .font(.system(size: 16, weight: .regular, design: .serif))
                 .foregroundStyle(.white.opacity(0.4))
                 .padding(.top, 28)
 
             Spacer()
 
-            HStack(spacing: 16) {
-                ForEach(actions) { action in
-                    Button(action: action.run) {
-                        Text(action.title)
-                            .font(.system(size: 15, weight: .medium))
-                            .frame(minWidth: 132)
-                            .padding(.vertical, 12)
-                    }
-                    .buttonStyle(OverlayButtonStyle(isPrimary: action.isPrimary))
-                }
-            }
-            .opacity(actions.isEmpty ? 0 : 1)
+            controls
+                .frame(height: 43)
 
             Text("⌘⇧0 — закрыть")
                 .font(.system(size: 12, weight: .regular))
@@ -56,6 +62,30 @@ struct OverlayView: View {
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
+    }
+
+    @ViewBuilder
+    private var controls: some View {
+        if let countdown = model.countdown {
+            // Идёт перерыв: экран остаётся, но нажимать на нём нечего.
+            Text(countdown)
+                .font(.system(size: 34, weight: .thin, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.55))
+        } else if showsActions {
+            HStack(spacing: 16) {
+                ForEach(model.actions) { action in
+                    Button(action: action.run) {
+                        Text(action.title)
+                            .font(.system(size: 15, weight: .medium))
+                            .frame(minWidth: 132)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(OverlayButtonStyle(isPrimary: action.isPrimary))
+                }
+            }
+        } else {
+            Color.clear
+        }
     }
 }
 

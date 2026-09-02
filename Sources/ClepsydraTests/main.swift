@@ -67,14 +67,14 @@ t.test("Второй раз не звеним") {
     t.expect(machine.advance(to: after(25 * 60 + 1)), [])
 }
 
-t.test("«Отдохнуть» убирает экран и запускает пять минут") {
+t.test("«Отдохнуть» запускает пять минут, не убирая экран") {
     var machine = TimerMachine()
     _ = machine.start(at: t0)
     _ = machine.advance(to: after(25 * 60))
 
     let effects = machine.takeBreak(at: after(25 * 60 + 4))
 
-    t.expect(effects, [.dismissOverlay])
+    t.expect(effects, [], "экран остаётся на весь перерыв и показывает отсчёт")
     t.expect(machine.phase, .onBreak(until: after(25 * 60 + 4 + 5 * 60)))
 }
 

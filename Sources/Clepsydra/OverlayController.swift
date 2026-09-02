@@ -3,30 +3,43 @@ import SwiftUI
 import ClepsydraCore
 
 /// Держит полноэкранные окна — по одному на каждый монитор. Кнопки живут только
-/// на том экране, где сейчас курсор; остальные показывают ту же цитату.
+/// на том экране, где сейчас курсор; цитата, отсчёт и подсказка — на всех.
+///
+/// Содержимое отделено от окон: за один показ оно меняется — кнопка «Отдохнуть»
+/// уступает место отсчёту перерыва, — а пересобирать при этом окна незачем.
 final class OverlayController {
 
-    private struct Presentation {
-        let quote: Quote
-        let actions: [OverlayAction]
-    }
-
     private var windows: [OverlayWindow] = []
-    private var presentation: Presentation?
-
-    var isVisible: Bool { presentation != nil }
+    private var model: OverlayModel?
 
     /// Что делать по ⌘⇧0. Задаётся один раз при запуске.
     var onEscape: (() -> Void)?
 
-    func show(quote: Quote, actions: [OverlayAction]) {
-        presentation = Presentation(quote: quote, actions: actions)
+    var isVisible: Bool { model != nil }
+
+    /// Показать экран или, если он уже висит, сменить его содержимое без
+    /// повторного проявления.
+    func present(quote: Quote, actions: [OverlayAction]) {
+        if let model {
+            model.quote = quote
+            model.countdown = nil
+            model.actions = actions
+            return
+        }
+        model = OverlayModel(quote: quote, actions: actions)
         build(animated: true)
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Перерыв пошёл: кнопки убираем, вместо них — отсчёт.
+    func showCountdown(_ text: String) {
+        guard let model else { return }
+        if !model.actions.isEmpty { model.actions = [] }
+        if model.countdown != text { model.countdown = text }
+    }
+
     func dismiss() {
-        presentation = nil
+        model = nil
         tearDown()
         // Фокус мы забрали силой — возвращаем его тому, кто работал до нас,
         // иначе после «Начать» человек сядет печатать в пустоту.
@@ -43,13 +56,12 @@ final class OverlayController {
     // MARK: Окна
 
     private func build(animated: Bool) {
-        guard let presentation else { return }
+        guard let model else { return }
         tearDown()
 
         // Список экранов берём один раз: NSScreen.screens возвращает новый
         // массив на каждый вызов, и сравнивать по ссылке элементы разных
-        // вызовов нельзя. Промахнёмся — кнопок не будет ни на одном экране,
-        // а экран без кнопок закрыть нечем.
+        // вызовов нельзя. Промахнёмся — кнопок не будет ни на одном экране.
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return }
 
@@ -59,11 +71,7 @@ final class OverlayController {
         for (index, screen) in screens.enumerated() {
             let window = OverlayWindow(screen: screen)
             window.onEscape = { [weak self] in self?.onEscape?() }
-            let view = OverlayView(
-                quote: presentation.quote,
-                actions: index == withActions ? presentation.actions : []
-            )
-            window.install(view, on: screen)
+            window.install(OverlayView(model: model, showsActions: index == withActions), on: screen)
             window.alphaValue = animated ? 0 : 1
             window.orderFrontRegardless()
             windows.append(window)

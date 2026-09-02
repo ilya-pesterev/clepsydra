@@ -58,11 +58,12 @@ public struct TimerMachine {
         }
     }
 
-    /// «Отдохнуть» на экране после помидора.
+    /// «Отдохнуть» на экране после помидора. Экран не убираем: он остаётся на
+    /// весь перерыв и показывает отсчёт вместо кнопки.
     public mutating func takeBreak(at now: Date) -> [Effect] {
         guard case .awaitingBreak = phase else { return [] }
         phase = .onBreak(until: now + Durations.breakInterval)
-        return [.dismissOverlay]
+        return []
     }
 
     /// «Хватит» на экране после перерыва — выход из круга.
