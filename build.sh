@@ -49,6 +49,7 @@ else
     echo "    Resources/philosophers нет — философский режим покажет цитату без портрета"
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+cp Resources/Clepsydra.icns "$APP/Contents/Resources/Clepsydra.icns"
 
 if [[ "$RELEASE" == false ]]; then
     echo "==> ad-hoc подпись"

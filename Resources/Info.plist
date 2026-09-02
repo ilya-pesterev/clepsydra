@@ -6,6 +6,7 @@
     <key>CFBundleDisplayName</key>     <string>Clepsydra</string>
     <key>CFBundleExecutable</key>      <string>Clepsydra</string>
     <key>CFBundleIdentifier</key>      <string>com.ilyapesterev.clepsydra</string>
+    <key>CFBundleIconFile</key>        <string>Clepsydra</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleVersion</key>         <string>1</string>
