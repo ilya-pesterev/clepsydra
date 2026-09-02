@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let overlay = OverlayController()
     private var ticker: Timer?
     private var lastQuote: Quote?
+    private var lastSticker: StickerQuote?
+    private var mode: QuoteMode = Settings.quoteMode
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -16,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             start: { [weak self] in self?.update { $0.start(at: Date()) } },
             reset: { [weak self] in self?.update { $0.reset() } },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
+            toggleStathamMode: { [weak self] in self?.toggleStathamMode() },
             quit: { NSApp.terminate(nil) }
         ))
 
@@ -110,9 +113,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showOverlay(actions: [OverlayAction]) {
-        let quote = Quotes.next(after: lastQuote)
-        lastQuote = quote
-        overlay.present(quote: quote, actions: actions)
+        overlay.present(content: nextContent(), actions: actions)
+    }
+
+    private func nextContent() -> OverlayContent {
+        switch mode {
+        case .philosophers:
+            let quote = Quotes.next(after: lastQuote)
+            lastQuote = quote
+            return .philosopher(quote)
+        case .statham:
+            let quote = StathamQuotes.next(after: lastSticker)
+            lastSticker = quote
+            return .sticker(quote, palette: .random(), photo: StathamPhotos.random())
+        }
+    }
+
+    private func toggleStathamMode() {
+        mode = mode == .statham ? .philosophers : .statham
+        Settings.quoteMode = mode
+        // Экран, который висит прямо сейчас, переобувать не станем: человек
+        // читает его в эту секунду. Переключатель сработает со следующего.
     }
 
     private func refresh() {

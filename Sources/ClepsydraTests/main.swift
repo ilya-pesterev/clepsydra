@@ -255,4 +255,31 @@ t.test("Следующая цитата никогда не равна пред�
     }
 }
 
+// MARK: Режим Стетхема
+
+t.test("Семнадцать реплик, все разбиты на строки") {
+    t.expect(StathamQuotes.all.count, 17)
+    t.expect(StathamQuotes.all.contains { $0.lines.isEmpty }, false)
+    t.expect(StathamQuotes.all.contains { $0.lines.contains(where: \.isEmpty) }, false)
+}
+
+t.test("Реплики не повторяются в списке") {
+    t.expect(Set(StathamQuotes.all.map { $0.lines.joined(separator: " ") }).count, StathamQuotes.all.count)
+}
+
+t.test("Строка помещается в плашку") {
+    // Больше тридцати знаков — плашка перестаёт влезать в отведённые 56% экрана.
+    let tooLong = StathamQuotes.all.flatMap(\.lines).filter { $0.count > 30 }
+    t.expect(tooLong, [])
+}
+
+t.test("Следующая реплика никогда не равна предыдущей") {
+    var previous = StathamQuotes.all[0]
+    for _ in 0..<500 {
+        let next = StathamQuotes.next(after: previous)
+        t.expect(next == previous, false)
+        previous = next
+    }
+}
+
 t.finish()

@@ -19,14 +19,14 @@ final class OverlayController {
 
     /// Показать экран или, если он уже висит, сменить его содержимое без
     /// повторного проявления.
-    func present(quote: Quote, actions: [OverlayAction]) {
+    func present(content: OverlayContent, actions: [OverlayAction]) {
         if let model {
-            model.quote = quote
+            model.content = content
             model.countdown = nil
             model.actions = actions
             return
         }
-        model = OverlayModel(quote: quote, actions: actions)
+        model = OverlayModel(content: content, actions: actions)
         build(animated: true)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -71,7 +71,12 @@ final class OverlayController {
         for (index, screen) in screens.enumerated() {
             let window = OverlayWindow(screen: screen)
             window.onEscape = { [weak self] in self?.onEscape?() }
-            window.install(OverlayView(model: model, showsActions: index == withActions), on: screen)
+            let view = OverlayView(
+                model: model,
+                showsActions: index == withActions,
+                screenWidth: screen.frame.width
+            )
+            window.install(view, on: screen)
             window.alphaValue = animated ? 0 : 1
             window.orderFrontRegardless()
             windows.append(window)

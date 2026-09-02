@@ -31,6 +31,15 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Clepsydra"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+
+# Фотографии для режима Стетхема — если положены. Их нет в репозитории:
+# это снимки реального человека, права на них не наши.
+if [[ -d Resources/statham ]]; then
+    cp -R Resources/statham "$APP/Contents/Resources/statham"
+    echo "    фотографий для режима Стетхема: $(ls Resources/statham | wc -l | tr -d ' ')"
+else
+    echo "    Resources/statham нет — режим Стетхема покажет наклейки без фигуры"
+fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 if [[ "$RELEASE" == false ]]; then

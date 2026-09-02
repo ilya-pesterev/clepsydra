@@ -10,6 +10,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let start: () -> Void
         let reset: () -> Void
         let toggleLaunchAtLogin: () -> Void
+        let toggleStathamMode: () -> Void
         let quit: () -> Void
     }
 
@@ -70,6 +71,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        let statham = entry("Режим Стетхема", #selector(toggleStathamMode))
+        statham.state = Settings.quoteMode == .statham ? .on : .off
+        menu.addItem(statham)
+
         let launch = entry("Запускать при входе", #selector(toggleLaunchAtLogin))
         launch.state = LaunchAtLogin.isEnabled ? .on : .off
         menu.addItem(launch)
@@ -87,5 +92,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func start() { actions.start() }
     @objc private func reset() { actions.reset() }
     @objc private func toggleLaunchAtLogin() { actions.toggleLaunchAtLogin() }
+    @objc private func toggleStathamMode() { actions.toggleStathamMode() }
     @objc private func quit() { actions.quit() }
 }
