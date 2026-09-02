@@ -24,6 +24,7 @@ final class OverlayController {
             model.content = content
             model.countdown = nil
             model.actions = actions
+            model.generation += 1
             return
         }
         model = OverlayModel(content: content, actions: actions)

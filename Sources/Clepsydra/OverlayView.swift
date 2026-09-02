@@ -22,6 +22,10 @@ final class OverlayModel: ObservableObject {
     /// Отсчёт перерыва. `nil` — вместо него показываем кнопки.
     @Published var countdown: String?
     @Published var actions: [OverlayAction]
+    /// Растёт с каждой новой репликой. Появление привязано к нему, а не к
+    /// созданию окна: экран может остаться на месте, а содержимое смениться —
+    /// так бывает, когда перерыв кончился, а окно так и висит.
+    @Published var generation: Int = 0
 
     init(content: OverlayContent, countdown: String? = nil, actions: [OverlayAction] = []) {
         self.content = content
@@ -46,6 +50,28 @@ struct OverlayView: View {
         ZStack {
             Color.black
 
+            ScreenContent(model: model, showsActions: showsActions, unit: unit)
+                // Новая реплика — вид пересобирается, и появление
+                // проигрывается заново.
+                .id(model.generation)
+        }
+    }
+}
+
+/// Содержимое экрана вместе с его появлением. Отделено от `OverlayView`,
+/// потому что состояние появления должно сбрасываться при смене реплики,
+/// а сбрасывается оно пересборкой вида по `.id`.
+private struct ScreenContent: View {
+
+    @ObservedObject var model: OverlayModel
+    let showsActions: Bool
+    let unit: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    var body: some View {
+        Group {
             switch model.content {
             case .philosopher(let quote, let portrait):
                 philosopher(quote, portrait: portrait)
@@ -53,9 +79,10 @@ struct OverlayView: View {
                 stickers(quote, palette: palette, photo: photo)
             }
         }
+        .onAppear { shown = true }
     }
 
-    // MARK: Философы — как было
+    // MARK: Философы — тихое всплытие
 
     private func philosopher(_ quote: Quote, portrait: NSImage?) -> some View {
         VStack(spacing: 0) {
@@ -71,6 +98,7 @@ struct OverlayView: View {
                     .opacity(0.8)
                     .frame(height: 9 * unit)
                     .padding(.bottom, 38)
+                    .modifier(rise(delay: 0.08))
             }
 
             Text(quote.text)
@@ -79,15 +107,17 @@ struct OverlayView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(10)
                 .fixedSize(horizontal: false, vertical: true)
+                .modifier(rise(delay: 0.2))
 
             Text(quote.author)
                 .font(.system(size: 16, weight: .regular, design: .serif))
                 .foregroundStyle(.white.opacity(0.4))
                 .padding(.top, 28)
+                .modifier(rise(delay: 0.32))
 
             Spacer()
 
-            footer
+            footer(delay: 0.48)
         }
         .padding(.bottom, 72)
         .frame(maxWidth: 760)
@@ -106,13 +136,20 @@ struct OverlayView: View {
             if let photo {
                 DieCutPhoto(photo: photo, height: 15 * unit, ring: 0.9 * unit)
                     .padding(.bottom, 2.4 * unit)
+                    .modifier(Stamp(
+                        fromScale: 0.68, fromRotation: -7, rotation: 0,
+                        delay: 0.06, shown: shown, reduce: reduceMotion
+                    ))
             }
 
-            StickerQuoteView(quote: quote, palette: palette, unit: unit)
+            StickerQuoteView(
+                quote: quote, palette: palette, unit: unit,
+                shown: shown, reduce: reduceMotion
+            )
 
             Spacer()
 
-            footer
+            footer(delay: 0.54)
         }
         .padding(.bottom, 72)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -120,8 +157,9 @@ struct OverlayView: View {
 
     // MARK: Низ экрана — одинаковый в обоих режимах
 
-    @ViewBuilder
-    private var footer: some View {
+    /// Кнопка приходит последней и без движения: по едущей кнопке легко
+    /// промахнуться, а экран существует ради текста, а не ради неё.
+    private func footer(delay: Double) -> some View {
         VStack(spacing: 0) {
             controls
                 .frame(height: 43)
@@ -131,6 +169,15 @@ struct OverlayView: View {
                 .foregroundStyle(.white.opacity(0.28))
                 .padding(.top, 22)
         }
+        .opacity(shown ? 1 : 0)
+        .animation(
+            reduceMotion ? .easeOut(duration: 0.2) : .easeOut(duration: 0.34).delay(delay),
+            value: shown
+        )
+    }
+
+    private func rise(delay: Double) -> Rise {
+        Rise(distance: 1.4 * unit, delay: delay, shown: shown, reduce: reduceMotion)
     }
 
     @ViewBuilder
@@ -165,6 +212,8 @@ private struct StickerQuoteView: View {
     let quote: StickerQuote
     let palette: StickerPalette
     let unit: CGFloat
+    let shown: Bool
+    let reduce: Bool
 
     /// Наклоны и смещения повторяются по кругу — так строки не выстраиваются
     /// по линейке, но и не пляшут случайно при каждом показе. Смещения
@@ -175,8 +224,17 @@ private struct StickerQuoteView: View {
     var body: some View {
         VStack(spacing: 0.7 * unit) {
             ForEach(Array(quote.lines.enumerated()), id: \.offset) { index, line in
+                let tilt = Self.tilts[index % Self.tilts.count]
                 pill(line, isLast: index == quote.lines.count - 1)
-                    .rotationEffect(.degrees(Self.tilts[index % Self.tilts.count]))
+                    // Наклон анимируется вместе с масштабом, поэтому живёт
+                    // внутри шлепка, а не отдельным модификатором.
+                    .modifier(Stamp(
+                        fromScale: 0.62, fromRotation: tilt * 3.2, rotation: tilt,
+                        // 70 мс между строками: глаз успевает заметить очередь,
+                        // но не начинает ждать.
+                        delay: 0.24 + 0.07 * Double(index),
+                        shown: shown, reduce: reduce
+                    ))
                     .offset(x: Self.shifts[index % Self.shifts.count] * unit)
             }
         }
@@ -200,6 +258,54 @@ private struct StickerQuoteView: View {
             // внутренняя цветная капсула затеняет белый кант до серого.
             .compositingGroup()
             .shadow(color: .black.opacity(0.55), radius: 1.4 * unit, y: 0.85 * unit)
+    }
+}
+
+/// Шлепок: приходит крупнее нужного, с перекрученным наклоном, и садится на
+/// место с перелётом. Пружина недодемпфирована нарочно — без перелёта это уже
+/// не шлепок, а просто масштабирование.
+private struct Stamp: ViewModifier {
+
+    let fromScale: CGFloat
+    let fromRotation: Double
+    let rotation: Double
+    let delay: Double
+    let shown: Bool
+    let reduce: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .rotationEffect(.degrees(shown || reduce ? rotation : fromRotation))
+            .scaleEffect(shown || reduce ? 1 : fromScale)
+            .opacity(shown ? 1 : 0)
+            .animation(
+                reduce
+                    ? .easeOut(duration: 0.2)
+                    : .spring(response: 0.38, dampingFraction: 0.58).delay(delay),
+                value: shown
+            )
+    }
+}
+
+/// Всплытие: то же появление, но без масштаба и без перелёта — для тихого
+/// режима, где ничего не шлёпается.
+private struct Rise: ViewModifier {
+
+    let distance: CGFloat
+    let delay: Double
+    let shown: Bool
+    let reduce: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: shown || reduce ? 0 : distance)
+            .opacity(shown ? 1 : 0)
+            .animation(
+                reduce
+                    ? .easeOut(duration: 0.2)
+                    : .easeOut(duration: 0.52).delay(delay),
+                value: shown
+            )
     }
 }
 
