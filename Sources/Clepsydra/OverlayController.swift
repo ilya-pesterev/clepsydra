@@ -2,12 +2,6 @@ import AppKit
 import SwiftUI
 import ClepsydraCore
 
-/// Первый клик должен попадать в кнопку, а не тратиться на то, чтобы сделать
-/// окно ключевым. `acceptsFirstMouse` живёт на вью, а не на окне.
-private final class OverlayHostingView<Content: View>: NSHostingView<Content> {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-}
-
 /// Держит полноэкранные окна — по одному на каждый монитор. Кнопки живут только
 /// на том экране, где сейчас курсор; остальные показывают ту же цитату.
 final class OverlayController {
@@ -21,6 +15,9 @@ final class OverlayController {
     private var presentation: Presentation?
 
     var isVisible: Bool { presentation != nil }
+
+    /// Что делать по ⌘⇧0. Задаётся один раз при запуске.
+    var onEscape: (() -> Void)?
 
     func show(quote: Quote, actions: [OverlayAction]) {
         presentation = Presentation(quote: quote, actions: actions)
@@ -61,11 +58,12 @@ final class OverlayController {
 
         for (index, screen) in screens.enumerated() {
             let window = OverlayWindow(screen: screen)
+            window.onEscape = { [weak self] in self?.onEscape?() }
             let view = OverlayView(
                 quote: presentation.quote,
                 actions: index == withActions ? presentation.actions : []
             )
-            window.contentView = OverlayHostingView(rootView: view)
+            window.install(view, on: screen)
             window.alphaValue = animated ? 0 : 1
             window.orderFrontRegardless()
             windows.append(window)

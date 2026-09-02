@@ -128,6 +128,28 @@ t.test("Сброс отменяет и идущий перерыв") {
     t.expect(machine.phase, .idle)
 }
 
+t.test("⌘⇧0 уводит в простой с экрана после помидора") {
+    var machine = machineAwaitingBreak()
+
+    t.expect(machine.escape(), [.dismissOverlay])
+    t.expect(machine.phase, .idle)
+}
+
+t.test("⌘⇧0 уводит в простой и с экрана после перерыва") {
+    var machine = machineAwaitingPomodoro()
+
+    t.expect(machine.escape(), [.dismissOverlay])
+    t.expect(machine.phase, .idle)
+}
+
+t.test("⌘⇧0 без экрана ничего не делает") {
+    var machine = TimerMachine()
+    _ = machine.start(at: t0)
+
+    t.expect(machine.escape(), [], "идущий помидор комбинацией не отменяют — для этого «Сбросить»")
+    t.expect(machine.phase, .pomodoro(until: after(25 * 60)))
+}
+
 // MARK: Сон
 
 t.test("Просроченный во сне помидор отменяется молча") {

@@ -45,9 +45,14 @@ struct OverlayView: View {
                     .buttonStyle(OverlayButtonStyle(isPrimary: action.isPrimary))
                 }
             }
-            .padding(.bottom, 88)
             .opacity(actions.isEmpty ? 0 : 1)
+
+            Text("⌘⇧0 — закрыть")
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(.white.opacity(0.28))
+                .padding(.top, 22)
         }
+        .padding(.bottom, 72)
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)

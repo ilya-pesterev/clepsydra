@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             quit: { NSApp.terminate(nil) }
         ))
 
+        // Запасной выход с экрана: работает из любой фазы с экраном и всегда
+        // возвращает в простой.
+        overlay.onEscape = { [weak self] in self?.update { $0.escape() } }
+
         startTicking()
 
         // Пробуждение из сна и ручная смена времени — те же вопросы к автомату,

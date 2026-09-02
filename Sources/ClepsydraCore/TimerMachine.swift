@@ -72,6 +72,19 @@ public struct TimerMachine {
         return [.dismissOverlay]
     }
 
+    /// Аварийный выход с экрана по ⌘⇧0. В отличие от кнопок, работает из любой
+    /// фазы с экраном и всегда возвращает в простой: это запасной выход, а не
+    /// часть круга.
+    public mutating func escape() -> [Effect] {
+        switch phase {
+        case .awaitingBreak, .awaitingPomodoro:
+            phase = .idle
+            return [.dismissOverlay]
+        case .idle, .pomodoro, .onBreak:
+            return []
+        }
+    }
+
     /// «Сбросить» в меню. Из-под полноэкранного экрана до меню не дотянуться,
     /// поэтому там сброс невозможен по построению.
     public mutating func reset() -> [Effect] {
