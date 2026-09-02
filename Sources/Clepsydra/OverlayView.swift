@@ -104,8 +104,7 @@ struct OverlayView: View {
             // обрезанная снизу фигура читается не как наклеенная поверх,
             // а просто как обрезанная.
             if let photo {
-                DieCutPhoto(photo: photo, ring: 0.9 * unit)
-                    .frame(height: 15 * unit)
+                DieCutPhoto(photo: photo, height: 15 * unit, ring: 0.9 * unit)
                     .padding(.bottom, 2.4 * unit)
             }
 
@@ -204,12 +203,42 @@ private struct StickerQuoteView: View {
     }
 }
 
+/// Прямоугольник со скруглённым низом. Снимки обрезаны по грудь, и ровная
+/// линия снизу выдаёт кадрирование; скругление читается как край наклейки.
+private struct BottomRounded: Shape {
+
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let r = min(radius, rect.width / 2, rect.height / 2)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - r, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX, y: rect.maxY - r),
+            control: CGPoint(x: rect.minX, y: rect.maxY)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
 /// Фотография, вырезанная по контуру: белый кант — это восемь копий силуэта
 /// со смещением под самим снимком. Силуэт берётся из альфа-канала, поэтому
 /// PNG обязан быть с прозрачным фоном.
+///
+/// Маска низа накладывается до канта: иначе кант обошёл бы исходный
+/// прямоугольник и скругление осталось бы незаметным.
 private struct DieCutPhoto: View {
 
     let photo: NSImage
+    let height: CGFloat
     let ring: CGFloat
 
     private static let directions: [(CGFloat, CGFloat)] = [
@@ -217,7 +246,19 @@ private struct DieCutPhoto: View {
         (0.7, 0.7), (-0.7, 0.7), (0.7, -0.7), (-0.7, -0.7)
     ]
 
+    /// Ширина считается из пикселей файла: у NSImage.size она зависит от DPI,
+    /// а снимки приходят разные.
+    private var aspect: CGFloat {
+        if let rep = photo.representations.first, rep.pixelsHigh > 0 {
+            return CGFloat(rep.pixelsWide) / CGFloat(rep.pixelsHigh)
+        }
+        return photo.size.height > 0 ? photo.size.width / photo.size.height : 1
+    }
+
     var body: some View {
+        let width = height * aspect
+        let mask = BottomRounded(radius: width * 0.3)
+
         ZStack {
             ForEach(Array(Self.directions.enumerated()), id: \.offset) { _, direction in
                 Image(nsImage: photo)
@@ -225,12 +266,15 @@ private struct DieCutPhoto: View {
                     .renderingMode(.template)
                     .scaledToFit()
                     .foregroundStyle(.white)
+                    .mask(mask)
                     .offset(x: direction.0 * ring, y: direction.1 * ring)
             }
             Image(nsImage: photo)
                 .resizable()
                 .scaledToFit()
+                .mask(mask)
         }
+        .frame(width: width, height: height)
         .compositingGroup()
         .shadow(color: .black.opacity(0.85), radius: 2.2 * ring, y: 1.3 * ring)
     }
