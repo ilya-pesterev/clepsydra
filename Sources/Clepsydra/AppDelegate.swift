@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastQuote: Quote?
     private var lastSticker: StickerQuote?
     private var mode: QuoteMode = Settings.quoteMode
-    private var tally: DailyTally = Settings.dailyTally
+    private var history: History = Settings.history
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showAbout: { About.show() },
             quit: { NSApp.terminate(nil) }
         ), sessionsToday: { [weak self] in
-            self?.tally.sessions(at: Date()) ?? 0
+            self?.history.sessions(at: Date()) ?? 0
         })
 
         // Запасной выход с экрана. Во время перерыва он лишь убирает экран:
@@ -96,8 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Считается только доведённый до конца помидор: сброшенный потерян
             // целиком (ADR-0003), просроченный во сне отменён молча (ADR-0002),
             // и сюда ни тот, ни другой не приходят.
-            tally.record(at: Date())
-            Settings.dailyTally = tally
+            history.record(at: Date())
+            Settings.history = history
 
             Sounds.pomodoroFinished()
             showOverlay(actions: [

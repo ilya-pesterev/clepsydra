@@ -293,7 +293,7 @@ t.test("Следующая реплика никогда не равна пре�
     }
 }
 
-// MARK: Счёт за день
+// MARK: История по дням
 
 /// Календарь с фиксированным поясом: иначе прогон зависел бы от того, где стоит
 /// машина, и полночь в тестах приходила бы в разное время.
@@ -307,54 +307,99 @@ let utc: Calendar = {
 /// что переход считается по суткам, а не по «прошло 24 часа».
 let noon = Date(timeIntervalSince1970: 1_700_000_000).addingTimeInterval(-10 * 3600 - 13 * 60 - 20)
 
-t.test("Новый счёт пуст") {
-    let tally = DailyTally()
-    t.expect(tally.sessions(at: noon, calendar: utc), 0)
+/// Следующее утро: то же время суток, но уже за полночью.
+let nextMorning = noon.addingTimeInterval(21 * 3600)
+
+t.test("Новая история пуста") {
+    let history = History()
+    t.expect(history.sessions(at: noon, calendar: utc), 0)
+    t.expect(history.stored.isEmpty, true)
 }
 
 t.test("Закрытый помидор увеличивает счёт") {
-    var tally = DailyTally()
-    tally.record(at: noon, calendar: utc)
+    var history = History()
+    history.record(at: noon, calendar: utc)
 
-    t.expect(tally.sessions(at: noon, calendar: utc), 1)
+    t.expect(history.sessions(at: noon, calendar: utc), 1)
 }
 
 t.test("Помидоры за один день складываются") {
-    var tally = DailyTally()
-    tally.record(at: noon, calendar: utc)
-    tally.record(at: noon.addingTimeInterval(30 * 60), calendar: utc)
-    tally.record(at: noon.addingTimeInterval(60 * 60), calendar: utc)
+    var history = History()
+    history.record(at: noon, calendar: utc)
+    history.record(at: noon.addingTimeInterval(30 * 60), calendar: utc)
+    history.record(at: noon.addingTimeInterval(60 * 60), calendar: utc)
 
-    t.expect(tally.sessions(at: noon.addingTimeInterval(60 * 60), calendar: utc), 3)
+    t.expect(history.sessions(at: noon.addingTimeInterval(60 * 60), calendar: utc), 3)
 }
 
-t.test("В полночь счёт начинается заново") {
-    var tally = DailyTally()
-    tally.record(at: noon, calendar: utc)
+t.test("Новый день считается с единицы") {
+    var history = History()
+    history.record(at: noon, calendar: utc)
 
-    let nextMorning = noon.addingTimeInterval(21 * 3600)
-    t.expect(tally.sessions(at: nextMorning, calendar: utc), 0, "вчерашнее число сегодня не показываем")
+    t.expect(history.sessions(at: nextMorning, calendar: utc), 0, "вчерашнее число сегодня не показываем")
 
-    tally.record(at: nextMorning, calendar: utc)
-    t.expect(tally.sessions(at: nextMorning, calendar: utc), 1, "новый день считается с единицы")
+    history.record(at: nextMorning, calendar: utc)
+    t.expect(history.sessions(at: nextMorning, calendar: utc), 1, "новый день считается с единицы")
+}
+
+t.test("Вчерашний день полночь не стирает") {
+    var history = History()
+    history.record(at: noon, calendar: utc)
+    history.record(at: nextMorning, calendar: utc)
+
+    t.expect(history.sessions(on: Day(of: noon, calendar: utc)), 1, "вчера осталось в истории")
+    t.expect(history.sessions(on: Day(of: nextMorning, calendar: utc)), 1, "сегодня считается отдельно")
+}
+
+t.test("День без помидоров в истории не появляется") {
+    var history = History()
+    history.record(at: noon, calendar: utc)
+
+    // Между этими днями сутки, в которые не закрыто ничего.
+    history.record(at: noon.addingTimeInterval(48 * 3600), calendar: utc)
+
+    t.expect(history.stored.count, 2, "пустые сутки в хранилище не попадают")
 }
 
 t.test("Ночной помидор до полуночи достаётся вчерашнему дню") {
-    var tally = DailyTally()
+    var history = History()
     let beforeMidnight = noon.addingTimeInterval(11 * 3600 + 59 * 60)
-    tally.record(at: beforeMidnight, calendar: utc)
+    history.record(at: beforeMidnight, calendar: utc)
 
-    t.expect(tally.sessions(at: beforeMidnight, calendar: utc), 1)
-    t.expect(tally.sessions(at: beforeMidnight.addingTimeInterval(120), calendar: utc), 0)
+    t.expect(history.sessions(at: beforeMidnight, calendar: utc), 1)
+    t.expect(history.sessions(at: beforeMidnight.addingTimeInterval(120), calendar: utc), 0)
 }
 
-t.test("Счёт переживает перезапуск") {
-    var tally = DailyTally()
-    tally.record(at: noon, calendar: utc)
-    tally.record(at: noon, calendar: utc)
+t.test("История переживает перезапуск") {
+    var history = History()
+    history.record(at: noon, calendar: utc)
+    history.record(at: noon, calendar: utc)
+    history.record(at: nextMorning, calendar: utc)
 
-    let restored = DailyTally(day: Day(stamp: tally.day.stamp), sessions: tally.storedSessions)
+    let restored = History(stored: history.stored)
+    t.expect(restored, history, "хранимый вид восстанавливается без потерь")
     t.expect(restored.sessions(at: noon, calendar: utc), 2)
+    t.expect(restored.sessions(at: nextMorning, calendar: utc), 1)
+}
+
+t.test("Испорченное хранилище не роняет историю") {
+    let history = History(stored: ["20231114": 2, "позавчера": 3, "20231115": 0, "0": 4, "20231116": "три"])
+
+    t.expect(history.stored as NSDictionary, ["20231114": 2] as NSDictionary,
+             "в историю попадают только дни с помидорами")
+}
+
+t.test("Прежний счёт переезжает в историю") {
+    // Прежнее хранение помнило один день: число дня и счёт.
+    let history = History(day: Day(stamp: 20231114), sessions: 3)
+
+    t.expect(history.sessions(at: noon, calendar: utc), 3, "сегодняшний счёт не теряется")
+    t.expect(history.stored.count, 1)
+}
+
+t.test("Переезжать нечему, когда прежнего счёта не было") {
+    t.expect(History(day: .none, sessions: 0), History())
+    t.expect(History(day: Day(stamp: 20231114), sessions: 0), History(), "день без помидоров не запись")
 }
 
 t.test("Смена часового пояса счёт не стирает") {
@@ -365,10 +410,12 @@ t.test("Смена часового пояса счёт не стирает") {
 
     // Полдень в Москве и в Лондоне — один и тот же день календаря, хотя сутки
     // там начались в разные моменты.
-    var tally = DailyTally()
-    tally.record(at: noon, calendar: moscow)
+    var history = History()
+    history.record(at: noon, calendar: moscow)
+    history.record(at: noon.addingTimeInterval(60), calendar: london)
 
-    t.expect(tally.sessions(at: noon, calendar: london), 1, "перелёт среди дня — не новый день")
+    t.expect(history.sessions(at: noon, calendar: london), 2, "перелёт среди дня — не новый день")
+    t.expect(history.stored.count, 1, "второй записи за тот же день не появилось")
 }
 
 t.test("День — число календаря, а не момент") {
