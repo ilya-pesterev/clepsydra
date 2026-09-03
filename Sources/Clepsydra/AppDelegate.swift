@@ -22,8 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             setMode: { [weak self] in self?.setMode($0) },
             showAbout: { About.show() },
             quit: { NSApp.terminate(nil) }
-        ), sessionsToday: { [weak self] in
-            self?.history.sessions(at: Date()) ?? 0
+        ), history: { [weak self] in
+            self?.history ?? History()
         })
 
         // Запасной выход с экрана. Во время перерыва он лишь убирает экран:

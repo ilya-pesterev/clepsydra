@@ -428,20 +428,136 @@ t.test("День — число календаря, а не момент") {
 }
 
 t.test("Подписи склоняются по-русски") {
-    t.expect(TallyLabel.text(for: 1), "Сегодня 1 сессия")
-    t.expect(TallyLabel.text(for: 2), "Сегодня 2 сессии")
-    t.expect(TallyLabel.text(for: 4), "Сегодня 4 сессии")
-    t.expect(TallyLabel.text(for: 5), "Сегодня 5 сессий")
-    t.expect(TallyLabel.text(for: 11), "Сегодня 11 сессий", "одиннадцать — не одна")
-    t.expect(TallyLabel.text(for: 14), "Сегодня 14 сессий")
-    t.expect(TallyLabel.text(for: 21), "Сегодня 21 сессия")
-    t.expect(TallyLabel.text(for: 22), "Сегодня 22 сессии")
-    t.expect(TallyLabel.text(for: 25), "Сегодня 25 сессий")
-    t.expect(TallyLabel.text(for: 101), "Сегодня 101 сессия")
+    t.expect(TallyLabel.today(sessions: 1), "Сегодня 1 сессия")
+    t.expect(TallyLabel.today(sessions: 2), "Сегодня 2 сессии")
+    t.expect(TallyLabel.today(sessions: 4), "Сегодня 4 сессии")
+    t.expect(TallyLabel.today(sessions: 5), "Сегодня 5 сессий")
+    t.expect(TallyLabel.today(sessions: 11), "Сегодня 11 сессий", "одиннадцать — не одна")
+    t.expect(TallyLabel.today(sessions: 14), "Сегодня 14 сессий")
+    t.expect(TallyLabel.today(sessions: 21), "Сегодня 21 сессия")
+    t.expect(TallyLabel.today(sessions: 22), "Сегодня 22 сессии")
+    t.expect(TallyLabel.today(sessions: 25), "Сегодня 25 сессий")
+    t.expect(TallyLabel.today(sessions: 101), "Сегодня 101 сессия")
 }
 
 t.test("Пустой день подписи не получает") {
-    t.expect(TallyLabel.text(for: 0), nil, "«0 сессий» — упрёк, а не сведения")
+    t.expect(TallyLabel.today(sessions: 0), nil, "«0 сессий» — упрёк, а не сведения")
+}
+
+// MARK: Последние дни
+
+/// Дни подряд: 12, 13 и 14 ноября 2023 года.
+let twelfth = Day(stamp: 20231112)
+let thirteenth = Day(stamp: 20231113)
+let fourteenth = Day(stamp: 20231114)
+
+/// История, в которой за каждый перечисленный день закрыто столько помидоров,
+/// сколько сказано.
+func historyOf(days: [Day: Int]) -> History {
+    var stored: [String: Any] = [:]
+    for (day, sessions) in days { stored[String(day.stamp)] = sessions }
+    return History(stored: stored)
+}
+
+t.test("Последние дни идут свежими сверху") {
+    let history = historyOf(days: [twelfth: 1, thirteenth: 5, fourteenth: 2])
+
+    t.expect(history.recent(before: Day(stamp: 20231115), limit: 7), [
+        DayTally(day: fourteenth, sessions: 2),
+        DayTally(day: thirteenth, sessions: 5),
+        DayTally(day: twelfth, sessions: 1)
+    ])
+}
+
+t.test("Сегодня в список не попадает") {
+    let history = historyOf(days: [thirteenth: 5, fourteenth: 2])
+
+    t.expect(history.recent(before: fourteenth, limit: 7),
+             [DayTally(day: thirteenth, sessions: 5)],
+             "сегодня уже написано строкой выше")
+}
+
+t.test("Пока прошедших дней нет, список пуст") {
+    t.expect(History().recent(before: fourteenth, limit: 7), [])
+    t.expect(historyOf(days: [fourteenth: 3]).recent(before: fourteenth, limit: 7), [],
+             "один сегодняшний день — это ещё не история")
+    t.expect(historyOf(days: [twelfth: 1]).recent(before: fourteenth, limit: 0), [],
+             "нулевой предел — пустой список, а не падение")
+}
+
+t.test("Длина списка ограничена при любом объёме хранилища") {
+    var days: [Day: Int] = [:]
+    for number in 1...28 { days[Day(stamp: 20231100 + number)] = number }
+    let history = historyOf(days: days)
+
+    let recent = history.recent(before: Day(stamp: 20231129), limit: 7)
+    t.expect(recent.count, 7, "меню обязано помещаться на экран")
+    t.expect(recent.first, DayTally(day: Day(stamp: 20231128), sessions: 28), "и это самые свежие дни")
+    t.expect(recent.last, DayTally(day: Day(stamp: 20231122), sessions: 22))
+}
+
+t.test("Дни считаются по календарю, а не по расстоянию до сегодня") {
+    // Между записями разрыв в год: в списке они всё равно соседние.
+    let history = historyOf(days: [Day(stamp: 20221231): 1, Day(stamp: 20230101): 2])
+
+    t.expect(history.recent(before: fourteenth, limit: 7), [
+        DayTally(day: Day(stamp: 20230101), sessions: 2),
+        DayTally(day: Day(stamp: 20221231), sessions: 1)
+    ])
+}
+
+t.test("Строка прошедшего дня — дата и счёт") {
+    t.expect(TallyLabel.past(DayTally(day: twelfth, sessions: 5), relativeTo: fourteenth),
+             "12 ноября — 5 сессий")
+    t.expect(TallyLabel.past(DayTally(day: Day(stamp: 20230902), sessions: 5), relativeTo: Day(stamp: 20230903)),
+             "2 сентября — 5 сессий")
+}
+
+t.test("Сессии в подменю склоняются так же, как в строке про сегодня") {
+    func label(_ sessions: Int) -> String? {
+        TallyLabel.past(DayTally(day: twelfth, sessions: sessions), relativeTo: fourteenth)
+    }
+    t.expect(label(1), "12 ноября — 1 сессия")
+    t.expect(label(2), "12 ноября — 2 сессии")
+    t.expect(label(5), "12 ноября — 5 сессий")
+    t.expect(label(11), "12 ноября — 11 сессий", "одиннадцать — не одна")
+    t.expect(label(21), "12 ноября — 21 сессия")
+    t.expect(label(22), "12 ноября — 22 сессии")
+}
+
+t.test("Все двенадцать месяцев названы по-русски") {
+    let named: [String?] = (1...12).map {
+        TallyLabel.past(DayTally(day: Day(stamp: 20230000 + $0 * 100 + 1), sessions: 1), relativeTo: Day(stamp: 20231114))
+    }
+    t.expect(named, [
+        "1 января — 1 сессия", "1 февраля — 1 сессия", "1 марта — 1 сессия",
+        "1 апреля — 1 сессия", "1 мая — 1 сессия", "1 июня — 1 сессия",
+        "1 июля — 1 сессия", "1 августа — 1 сессия", "1 сентября — 1 сессия",
+        "1 октября — 1 сессия", "1 ноября — 1 сессия", "1 декабря — 1 сессия"
+    ])
+}
+
+t.test("Чужой год дописывается, свой — нет") {
+    let tally = DayTally(day: Day(stamp: 20211231), sessions: 3)
+
+    t.expect(TallyLabel.past(tally, relativeTo: Day(stamp: 20230105)), "31 декабря 2021 — 3 сессии",
+             "без года это был бы обман")
+    t.expect(TallyLabel.past(tally, relativeTo: Day(stamp: 20211231)), "31 декабря — 3 сессии")
+}
+
+t.test("День, который не дата, назвать нельзя") {
+    // Ключи в хранилище правит человек и портит случай: «14 месяца 99» между
+    // настоящими днями хуже, чем пропущенная строка.
+    t.expect(TallyLabel.past(DayTally(day: Day(stamp: 20239914), sessions: 1), relativeTo: fourteenth), nil)
+    t.expect(TallyLabel.past(DayTally(day: Day(stamp: 20231100), sessions: 1), relativeTo: fourteenth), nil)
+    t.expect(TallyLabel.past(DayTally(day: .none, sessions: 1), relativeTo: fourteenth), nil,
+             "дня ещё не было")
+}
+
+t.test("Дни сравниваются как даты") {
+    t.expect(twelfth < thirteenth, true)
+    t.expect(Day(stamp: 20221231) < Day(stamp: 20230101), true, "новый год — не откат назад")
+    t.expect(fourteenth < fourteenth, false)
 }
 
 t.finish()

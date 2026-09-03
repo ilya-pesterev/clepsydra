@@ -15,16 +15,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let quit: () -> Void
     }
 
+    /// Сколько прошедших дней показывать. Хранение глубину не ограничивает
+    /// (ADR-0006), а меню обязано помещаться на экран — предел ставим здесь.
+    /// Неделя: столько дней человек ещё помнит, и столько строк подменю не
+    /// перерастает даже на ноутбучном экране.
+    private static let recentDaysShown = 7
+
     private let item: NSStatusItem
     private let actions: Actions
-    /// Счёт спрашиваем в момент открытия меню, а не храним: тогда полночь
-    /// обнуляет его сама, без будильника на 00:00.
-    private let sessionsToday: () -> Int
+    /// Историю спрашиваем в момент открытия меню, а не храним: тогда полночь
+    /// сама сдвигает и счёт за сегодня, и список прошедших дней — без
+    /// будильника на 00:00.
+    private let history: () -> History
     private var phase: Phase = .idle
 
-    init(actions: Actions, sessionsToday: @escaping () -> Int) {
+    init(actions: Actions, history: @escaping () -> History) {
         self.actions = actions
-        self.sessionsToday = sessionsToday
+        self.history = history
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -64,10 +71,25 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
+        let history = self.history()
+        let today = Day(of: Date())
+
         // Счёт за день — строкой над пунктами: он сообщает, а не делает, и без
         // действия сереет сам. Пустой день строки не получает, см. TallyLabel.
-        if let tally = TallyLabel.text(for: sessionsToday()) {
+        let tally = TallyLabel.today(sessions: history.sessions(on: today))
+        if let tally {
             menu.addItem(NSMenuItem(title: tally, action: nil, keyEquivalent: ""))
+        }
+
+        // Прошедшие дни — подменю под этой строкой: отдельного окна под них
+        // не заводим, см. ADR-0007.
+        let recent = history.recent(before: today, limit: Self.recentDaysShown)
+        if !recent.isEmpty {
+            menu.addItem(recentDays(recent, relativeTo: today))
+        }
+
+        // Пока показывать нечего, полоски в пустоте не рисуем.
+        if tally != nil || !recent.isEmpty {
             menu.addItem(.separator())
         }
 
@@ -106,6 +128,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(entry("О программе", #selector(showAbout)))
         menu.addItem(entry("Выйти", #selector(quit)))
+    }
+
+    /// Подменю с прошедшими днями, свежие сверху. Строки без действия: они
+    /// сообщают, а не действуют, — и сереют сами, как строка про сегодня.
+    /// Пункт с подменю AppKit оставляет доступным и при серых строках внутри.
+    private func recentDays(_ recent: [DayTally], relativeTo today: Day) -> NSMenuItem {
+        let days = NSMenuItem(title: "Последние дни", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        for title in recent.compactMap({ TallyLabel.past($0, relativeTo: today) }) {
+            submenu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
+        }
+        days.submenu = submenu
+        return days
     }
 
     private func entry(_ title: String, _ selector: Selector) -> NSMenuItem {
