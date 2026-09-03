@@ -17,10 +17,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private let item: NSStatusItem
     private let actions: Actions
+    /// Счёт спрашиваем в момент открытия меню, а не храним: тогда полночь
+    /// обнуляет его сама, без будильника на 00:00.
+    private let sessionsToday: () -> Int
     private var phase: Phase = .idle
 
-    init(actions: Actions) {
+    init(actions: Actions, sessionsToday: @escaping () -> Int) {
         self.actions = actions
+        self.sessionsToday = sessionsToday
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -60,17 +64,26 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
+        // Счёт за день — строкой над пунктами: он сообщает, а не делает, и без
+        // действия сереет сам. Пустой день строки не получает, см. TallyLabel.
+        if let tally = TallyLabel.text(for: sessionsToday()) {
+            menu.addItem(NSMenuItem(title: tally, action: nil, keyEquivalent: ""))
+            menu.addItem(.separator())
+        }
+
+        // Разделитель ставит тот, кто добавил пункт: иначе в фазах с экраном
+        // меню начиналось бы с полоски в пустоте.
         switch phase {
         case .idle:
             menu.addItem(entry("Запустить сессию", #selector(start)))
+            menu.addItem(.separator())
         case .pomodoro, .onBreak:
             menu.addItem(entry("Сбросить", #selector(reset)))
+            menu.addItem(.separator())
         case .awaitingBreak, .awaitingPomodoro:
             // Меню под полноэкранным экраном недостижимо, но пустым его не оставляем.
             break
         }
-
-        menu.addItem(.separator())
 
         // Режимы — группой с галочкой у выбранного: так видно, что их два и
         // какой сейчас работает. Одного переключателя для этого мало.

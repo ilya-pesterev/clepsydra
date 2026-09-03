@@ -293,4 +293,108 @@ t.test("Следующая реплика никогда не равна пре�
     }
 }
 
+// MARK: Счёт за день
+
+/// Календарь с фиксированным поясом: иначе прогон зависел бы от того, где стоит
+/// машина, и полночь в тестах приходила бы в разное время.
+let utc: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "UTC")!
+    return calendar
+}()
+
+/// Полдень 14 ноября 2023 года по UTC и соседние с ним моменты — так видно,
+/// что переход считается по суткам, а не по «прошло 24 часа».
+let noon = Date(timeIntervalSince1970: 1_700_000_000).addingTimeInterval(-10 * 3600 - 13 * 60 - 20)
+
+t.test("Новый счёт пуст") {
+    let tally = DailyTally()
+    t.expect(tally.sessions(at: noon, calendar: utc), 0)
+}
+
+t.test("Закрытый помидор увеличивает счёт") {
+    var tally = DailyTally()
+    tally.record(at: noon, calendar: utc)
+
+    t.expect(tally.sessions(at: noon, calendar: utc), 1)
+}
+
+t.test("Помидоры за один день складываются") {
+    var tally = DailyTally()
+    tally.record(at: noon, calendar: utc)
+    tally.record(at: noon.addingTimeInterval(30 * 60), calendar: utc)
+    tally.record(at: noon.addingTimeInterval(60 * 60), calendar: utc)
+
+    t.expect(tally.sessions(at: noon.addingTimeInterval(60 * 60), calendar: utc), 3)
+}
+
+t.test("В полночь счёт начинается заново") {
+    var tally = DailyTally()
+    tally.record(at: noon, calendar: utc)
+
+    let nextMorning = noon.addingTimeInterval(21 * 3600)
+    t.expect(tally.sessions(at: nextMorning, calendar: utc), 0, "вчерашнее число сегодня не показываем")
+
+    tally.record(at: nextMorning, calendar: utc)
+    t.expect(tally.sessions(at: nextMorning, calendar: utc), 1, "новый день считается с единицы")
+}
+
+t.test("Ночной помидор до полуночи достаётся вчерашнему дню") {
+    var tally = DailyTally()
+    let beforeMidnight = noon.addingTimeInterval(11 * 3600 + 59 * 60)
+    tally.record(at: beforeMidnight, calendar: utc)
+
+    t.expect(tally.sessions(at: beforeMidnight, calendar: utc), 1)
+    t.expect(tally.sessions(at: beforeMidnight.addingTimeInterval(120), calendar: utc), 0)
+}
+
+t.test("Счёт переживает перезапуск") {
+    var tally = DailyTally()
+    tally.record(at: noon, calendar: utc)
+    tally.record(at: noon, calendar: utc)
+
+    let restored = DailyTally(day: Day(stamp: tally.day.stamp), sessions: tally.storedSessions)
+    t.expect(restored.sessions(at: noon, calendar: utc), 2)
+}
+
+t.test("Смена часового пояса счёт не стирает") {
+    var moscow = Calendar(identifier: .gregorian)
+    moscow.timeZone = TimeZone(identifier: "Europe/Moscow")!
+    var london = Calendar(identifier: .gregorian)
+    london.timeZone = TimeZone(identifier: "Europe/London")!
+
+    // Полдень в Москве и в Лондоне — один и тот же день календаря, хотя сутки
+    // там начались в разные моменты.
+    var tally = DailyTally()
+    tally.record(at: noon, calendar: moscow)
+
+    t.expect(tally.sessions(at: noon, calendar: london), 1, "перелёт среди дня — не новый день")
+}
+
+t.test("День — число календаря, а не момент") {
+    var moscow = Calendar(identifier: .gregorian)
+    moscow.timeZone = TimeZone(identifier: "Europe/Moscow")!
+
+    t.expect(Day(of: noon, calendar: utc).stamp, 20231114)
+    t.expect(Day(of: noon, calendar: moscow).stamp, 20231114)
+    t.expect(Day.none.stamp, 0, "дня ещё не было")
+}
+
+t.test("Подписи склоняются по-русски") {
+    t.expect(TallyLabel.text(for: 1), "Сегодня 1 сессия")
+    t.expect(TallyLabel.text(for: 2), "Сегодня 2 сессии")
+    t.expect(TallyLabel.text(for: 4), "Сегодня 4 сессии")
+    t.expect(TallyLabel.text(for: 5), "Сегодня 5 сессий")
+    t.expect(TallyLabel.text(for: 11), "Сегодня 11 сессий", "одиннадцать — не одна")
+    t.expect(TallyLabel.text(for: 14), "Сегодня 14 сессий")
+    t.expect(TallyLabel.text(for: 21), "Сегодня 21 сессия")
+    t.expect(TallyLabel.text(for: 22), "Сегодня 22 сессии")
+    t.expect(TallyLabel.text(for: 25), "Сегодня 25 сессий")
+    t.expect(TallyLabel.text(for: 101), "Сегодня 101 сессия")
+}
+
+t.test("Пустой день подписи не получает") {
+    t.expect(TallyLabel.text(for: 0), nil, "«0 сессий» — упрёк, а не сведения")
+}
+
 t.finish()
