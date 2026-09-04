@@ -562,5 +562,8 @@ t.test("Дни сравниваются как даты") {
 
 checkBuildNumber(t)
 checkDmgName(t)
+checkReleaseTag(t)
+checkReleaseGate(t)
+checkReleaseNotes(t)
 
 t.finish()

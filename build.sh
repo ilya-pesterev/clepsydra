@@ -39,23 +39,10 @@ BUILD="$(./Tools/build-number.sh)"
 LAST_RELEASE_FILE=last-release-build
 
 # Ворота релиза: выпуск с невыросшим номером обновление никому не покажет.
-# Сверяем до сборки, а не после нотаризации.
+# Сверяем до сборки, а не после нотаризации. Те же ворота стоят в release.sh.
 if [[ "$RELEASE" == true ]]; then
-    if [[ ! -f "$LAST_RELEASE_FILE" ]]; then
-        echo "==> прошлых релизов нет: $LAST_RELEASE_FILE не найден, сверять номер не с чем"
-    else
-        PREVIOUS="$(tr -dc '0-9' < "$LAST_RELEASE_FILE")"
-        if [[ -z "$PREVIOUS" ]]; then
-            echo "ОШИБКА: в $LAST_RELEASE_FILE нет номера прошлого релиза." >&2
-            echo "Впишите номер последнего выпущенного релиза или удалите файл." >&2
-            exit 1
-        fi
-        if [[ "$BUILD" -le "$PREVIOUS" ]]; then
-            echo "ОШИБКА: номер сборки $BUILD не больше номера прошлого релиза $PREVIOUS." >&2
-            echo "Номер берётся из времени по UTC — проверьте часы на машине." >&2
-            exit 1
-        fi
-    fi
+    echo "==> ворота релиза"
+    ./Tools/release-gate.sh "$BUILD" "$LAST_RELEASE_FILE"
 fi
 
 echo "==> прогон тестов"

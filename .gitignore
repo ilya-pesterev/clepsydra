@@ -3,7 +3,11 @@
 Clepsydra.app/
 Clepsydra*.zip
 Clepsydra*.dmg
+Clepsydra*.sha256
 Resources/statham/
 Resources/statham-originals/
 Resources/philosophers/
 Resources/philosophers-originals/
+promo/node_modules/
+promo/out/
+promo/public/
