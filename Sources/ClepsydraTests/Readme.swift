@@ -38,6 +38,11 @@ func checkReadme(_ t: Runner) {
         expectFirstRunNames(t, in: installSection)
     }
 
+    t.test("Руководство по установке называет первый запуск так же") {
+        // README отсылает к нему за подробностями: разойтись им нельзя.
+        expectFirstRunNames(t, in: documentText("docs/install.md"))
+    }
+
     t.test("До раздела для разработчиков в README нет ни одной команды") {
         t.expect(beforeDevelopment.contains("```"), false, "команда в терминале — уже не установка")
         t.expect(beforeDevelopment.contains("./build.sh"), false)

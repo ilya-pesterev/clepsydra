@@ -105,4 +105,9 @@ func expectFirstRunNames(_ t: Runner, in text: String, line: Int = #line) {
     for name in names {
         t.expect(flat.contains(name), true, "не названо «\(name)»", line: line)
     }
+    // Логотип Apple — символ из приватной области Юникода (U+F8FF). Он не
+    // переживает редакторы и вставки, которые о нём не знают, и пропадает
+    // молча: на его месте остаётся лишний пробел перед стрелкой.
+    t.expect(flat.contains("\u{F8FF} \u{2192} «Системные настройки…»"), true,
+             "потерян логотип Apple перед «Системными настройками»", line: line)
 }
