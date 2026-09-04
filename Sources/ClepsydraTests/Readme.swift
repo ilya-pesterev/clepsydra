@@ -11,11 +11,14 @@ func checkReadme(_ t: Runner) {
     let developmentDoc = documentText("docs/development.md")
     let beforeDevelopment = readme.components(separatedBy: "## Разработка")[0]
 
-    t.test("«Установка» начинается ссылкой на последний релиз") {
-        // Не на страницу релизов и не на конкретный тег: адрес `releases/latest`
-        // не устаревает вместе с версией.
+    t.test("«Установка» начинается ссылкой на сам образ") {
+        // Не на страницу релизов и не на конкретный тег: адрес
+        // `releases/latest/download` не устаревает вместе с версией и отдаёт
+        // файл сразу, без промежуточной страницы, на которой человек ищет,
+        // что из приложенного качать.
         let firstLine = installSection.split(separator: "\n").first.map(String.init) ?? ""
-        t.expect(firstLine.contains("/releases/latest"), true, "первая строка раздела — ссылка на скачивание")
+        t.expect(firstLine.contains("/releases/latest/download/"), true, "первая строка раздела — скачивание образа")
+        t.expect(firstLine.contains(".dmg"), true, "ссылка ведёт на образ, а не на страницу")
         t.expect(installSection.contains("git clone"), false, "установка — не сборка")
     }
 

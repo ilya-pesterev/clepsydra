@@ -21,8 +21,10 @@
 
 ## Установка
 
-1. **[Скачайте последний релиз](https://github.com/ilya-pesterev/clepsydra/releases/latest)** —
-   файл `Clepsydra-<версия>.dmg`. Нужен Mac на Apple Silicon и macOS 14 или новее.
+1. **[Скачайте Clepsydra 1.0](https://github.com/ilya-pesterev/clepsydra/releases/latest/download/Clepsydra-1.0.dmg)** —
+   образ `Clepsydra-1.0.dmg` начнёт скачиваться сразу, 10,9 МБ. Нужен Mac на
+   Apple Silicon и macOS 14 или новее. Контрольная сумма и что изменилось — на
+   [странице релиза](https://github.com/ilya-pesterev/clepsydra/releases/latest).
 2. Откройте образ двойным щелчком и перетащите иконку Clepsydra на ярлык
    «Applications» — приложение скопируется в папку «Программы». Дальше
    запускайте его из Launchpad.
