@@ -1,13 +1,15 @@
 import Foundation
 import ClepsydraCore
 
-/// То немногое, что переживает перезапуск. Длительности зашиты, поэтому здесь
-/// только режим цитат и история по дням; запуск при входе живёт в системе, а не
-/// здесь.
+/// То немногое, что переживает перезапуск: режим цитат, история по дням и
+/// результат последней проверки обновлений. Длительности зашиты, а запуск при
+/// входе живёт в системе, а не здесь.
 enum Settings {
 
     private static let modeKey = "quoteMode"
     private static let historyKey = "history"
+    private static let lastUpdateCheckKey = "lastUpdateCheck"
+    private static let knownUpdateKey = "knownUpdate"
     // Прежнее хранение: один день и счёт за него. Читается один раз, при
     // переезде, и после этого стирается.
     private static let tallyDayKey = "tallyDay"
@@ -32,6 +34,20 @@ enum Settings {
         set {
             UserDefaults.standard.set(newValue.stored, forKey: historyKey)
         }
+    }
+
+    /// Когда фид ответил в последний раз. Пусто — не проверяли ни разу.
+    static var lastUpdateCheck: Date? {
+        get { UserDefaults.standard.object(forKey: lastUpdateCheckKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: lastUpdateCheckKey) }
+    }
+
+    /// Что фид сказал в последний раз. Хранится словарём, как история: пункт
+    /// меню помнит вышедшую версию и после перезапуска, а не молчит до
+    /// следующих суток.
+    static var knownUpdate: Update? {
+        get { Update(fields: UserDefaults.standard.dictionary(forKey: knownUpdateKey) ?? [:]) }
+        set { UserDefaults.standard.set(newValue?.stored, forKey: knownUpdateKey) }
     }
 
     /// Переезд с прежнего хранения, где помнился один день. Зовётся при запуске

@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastSticker: StickerQuote?
     private var mode: QuoteMode = Settings.quoteMode
     private var history: History = Settings.history
+    private let updates = UpdateChecker()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -20,10 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reset: { [weak self] in self?.update { $0.reset() } },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
             setMode: { [weak self] in self?.setMode($0) },
+            checkForUpdates: { [weak self] in self?.updates.checkNow() },
+            openUpdate: { [weak self] in self?.updates.openReleasePage() },
             showAbout: { About.show() },
             quit: { NSApp.terminate(nil) }
         ), history: { [weak self] in
             self?.history ?? History()
+        }, updateState: { [weak self] in
+            self?.updates.state ?? .unknown
         })
 
         // Запасной выход с экрана. Во время перерыва он лишь убирает экран:
@@ -73,7 +78,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func timeMayHaveMoved() {
-        update { $0.advance(to: Date()) }
+        let now = Date()
+        update { $0.advance(to: now) }
+        // Тихая проверка обновлений висит на том же тике: вопрос к ней тот же —
+        // сколько прошло с прошлого раза, — и сон она переживает так же. При
+        // запуске в лицо ничего не проверяется: спросить фид и промолчать — это
+        // и есть тихая проверка.
+        updates.checkIfDue(now: now)
     }
 
     @objc private func screensChanged() {

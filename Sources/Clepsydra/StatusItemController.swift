@@ -11,6 +11,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let reset: () -> Void
         let toggleLaunchAtLogin: () -> Void
         let setMode: (QuoteMode) -> Void
+        let checkForUpdates: () -> Void
+        let openUpdate: () -> Void
         let showAbout: () -> Void
         let quit: () -> Void
     }
@@ -27,11 +29,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// сама сдвигает и счёт за сегодня, и список прошедших дней — без
     /// будильника на 00:00.
     private let history: () -> History
+    /// Что известно об обновлении — спрашиваем так же, в момент открытия меню:
+    /// тихая проверка могла ответить, пока меню было закрыто.
+    private let updateState: () -> UpdateState
     private var phase: Phase = .idle
 
-    init(actions: Actions, history: @escaping () -> History) {
+    init(
+        actions: Actions,
+        history: @escaping () -> History,
+        updateState: @escaping () -> UpdateState
+    ) {
         self.actions = actions
         self.history = history
+        self.updateState = updateState
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -126,8 +136,29 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(launch)
 
         menu.addItem(.separator())
+        // Обновление стоит рядом с «О программе»: оба про версию, которая
+        // сейчас установлена.
+        menu.addItem(updateEntry())
         menu.addItem(entry("О программе", #selector(showAbout)))
         menu.addItem(entry("Выйти", #selector(quit)))
+    }
+
+    /// Пункт обновления. Лицо у него одно на все фазы: меню под экраном
+    /// недостижимо по построению, и отличать его поведение от остальных
+    /// пунктов не за что.
+    ///
+    /// Меню — единственное место, где проверка отвечает: окон она не
+    /// открывает (см. ADR-0009). Поэтому ответ на щелчок человек видит,
+    /// открыв меню снова, — щелчок его закрывает.
+    private func updateEntry() -> NSMenuItem {
+        let state = updateState()
+        // Знаем про новую версию — ведём на страницу релиза; во всех
+        // остальных лицах пункт проверяет. «Установлена последняя версия» —
+        // и ответ на прошлый щелчок, и приглашение спросить снова.
+        if case .ready = state {
+            return entry(UpdateLabel.title(for: state), #selector(openUpdate))
+        }
+        return entry(UpdateLabel.title(for: state), #selector(checkForUpdates))
     }
 
     /// Подменю с прошедшими днями, свежие сверху. Строки без действия: они
@@ -154,6 +185,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func toggleLaunchAtLogin() { actions.toggleLaunchAtLogin() }
     @objc private func selectPhilosophers() { actions.setMode(.philosophers) }
     @objc private func selectStatham() { actions.setMode(.statham) }
+    @objc private func checkForUpdates() { actions.checkForUpdates() }
+    @objc private func openUpdate() { actions.openUpdate() }
     @objc private func showAbout() { actions.showAbout() }
     @objc private func quit() { actions.quit() }
 }

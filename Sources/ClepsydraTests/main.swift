@@ -568,5 +568,7 @@ checkReleaseNotes(t)
 checkOriginRepo(t)
 checkBundlePictures(t)
 checkReadme(t)
+checkUpdates(t)
+checkUpdateFeed(t)
 
 t.finish()

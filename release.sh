@@ -29,6 +29,7 @@ BUILD=""        # номер сборки из готового бандла
 CHANGES=""      # docs/releases/1.0.md
 NOTES=""        # собранное описание релиза, файл
 PUBLISHED=""    # копия образа под именем, под которым он уходит в релиз
+FEED=""         # фид обновлений, собранный на время выпуска
 UPLOAD=()       # что прикладывается к релизу
 
 step() { echo "==> $1"; }
@@ -40,6 +41,7 @@ fail() { echo "ОШИБКА: $1" >&2; exit 1; }
 remove_leftovers() {
     if [[ -n "$NOTES" ]]; then rm -f "$NOTES"; fi
     if [[ -n "$PUBLISHED" ]]; then rm -f "$PUBLISHED" "$PUBLISHED.sha256"; fi
+    if [[ -n "$FEED" ]]; then rm -f "$FEED"; fi
 }
 trap remove_leftovers EXIT
 
@@ -190,6 +192,18 @@ collect_artifacts() {
     done
 }
 
+# Фид обновлений: по нему установленные копии узнают о новом выпуске. Кладётся
+# в релиз файлом с постоянным именем — адрес releases/latest/download/<имя>
+# должен пережить все следующие выпуски, иначе установленные копии перестанут
+# находить фид. Суммы фиду не считаем: его читает приложение, а не человек.
+build_feed() {
+    step "фид обновлений"
+    FEED="$(./Tools/update-feed.sh --name)"
+    ./Tools/update-feed.sh "$VERSION" "$BUILD" "$CHANGES" > "$FEED"
+    UPLOAD+=("$FEED")
+    echo "    $FEED: версия $VERSION, сборка $BUILD"
+}
+
 create_tag() {
     step "тег $TAG"
     git tag -a "$TAG" -m "Clepsydra $VERSION"
@@ -233,6 +247,7 @@ check_build_number
 build
 report_bundle_contents
 collect_artifacts
+build_feed
 create_tag
 publish_draft
 record_build_number
