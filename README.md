@@ -21,17 +21,30 @@
 
 ## Установка
 
-Нужны Mac на Apple Silicon с macOS 14 и Command Line Tools
-(`xcode-select --install`); полный Xcode не требуется.
+1. **[Скачайте последний релиз](https://github.com/ilya-pesterev/clepsydra/releases/latest)** —
+   файл `Clepsydra-<версия>.dmg`. Нужен Mac на Apple Silicon и macOS 14 или новее.
+2. Откройте образ двойным щелчком и перетащите иконку Clepsydra на ярлык
+   «Applications» — приложение скопируется в папку «Программы». Дальше
+   запускайте его из Launchpad.
+3. **Первый запуск macOS остановит**: сертификата Apple Developer ID у проекта
+   нет, и подтвердить сборку ей нечем.
 
-```bash
-git clone https://github.com/ilya-pesterev/clepsydra.git
-cd clepsydra
-./build.sh
-cp -R Clepsydra.app /Applications/ && open /Applications/Clepsydra.app
-```
+   В окне «Файл «Clepsydra» не был открыт» (“Clepsydra” Not Opened) нажмите
+   «Готово» (Done). Синяя кнопка рядом — «Переместить в Корзину» (Move to
+   Trash), не нажимайте Enter не глядя.
 
----
+   Дальше  → «Системные настройки…» → «Конфиденциальность и безопасность»
+   (Privacy & Security): рядом со строкой про заблокированный файл будет кнопка
+   «Все равно открыть» (Open Anyway). Второй запуск переспросит в последний
+   раз — «Открыть» (Open), и больше приложение ни о чём не спросит.
 
-[docs/development.md](docs/development.md) — как всё устроено и собирается.
+Терминал не нужен ни разу. Весь путь подробно, вместе с запуском при входе и
+разбором того, чего быть не должно, — в
+[руководстве по установке](docs/install.md).
+
+## Разработка
+
+[Как всё устроено, собирается и выпускается](docs/development.md) — сборка идёт
+на одних Command Line Tools, полный Xcode не нужен.
+
 [CONTEXT.md](CONTEXT.md) — язык проекта, [docs/adr/](docs/adr/) — решения.

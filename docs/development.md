@@ -113,12 +113,24 @@ swift Tools/trim-background.swift вход.jpg Resources/icon-source.png
 
 ## Сборка
 
+Нужны Mac на Apple Silicon с macOS 14 и Command Line Tools
+(`xcode-select --install`); полный Xcode не требуется.
+
 ```bash
+git clone https://github.com/ilya-pesterev/clepsydra.git
+cd clepsydra
 ./build.sh
 ```
 
 Пересобирает `Clepsydra.app` — чистый arm64, подписанный ad-hoc. Перед сборкой
-прогоняются тесты.
+прогоняются тесты. Собранный бандл кладут в «Программы» и запускают оттуда:
+
+```bash
+cp -R Clepsydra.app /Applications/ && open /Applications/Clepsydra.app
+```
+
+Первый запуск такой сборки macOS остановит — она подписана ad-hoc; путь через
+«Все равно открыть» описан в [docs/install.md](install.md).
 
 ## Номер сборки
 

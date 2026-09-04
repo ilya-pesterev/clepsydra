@@ -567,5 +567,6 @@ checkReleaseGate(t)
 checkReleaseNotes(t)
 checkOriginRepo(t)
 checkBundlePictures(t)
+checkReadme(t)
 
 t.finish()

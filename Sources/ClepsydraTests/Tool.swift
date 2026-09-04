@@ -58,3 +58,51 @@ func temporaryFile(named name: String, contents: String) -> String {
 func missingPath() -> String {
     temporaryDirectory().appendingPathComponent("нет-такого").path
 }
+
+/// Текст документа от корня репозитория.
+///
+/// Файла нет — прогон падает сразу, а не отдаёт пустую строку: проверки вида
+/// «команды здесь нет» на пустоте зеленеют, и переименованный документ прошёл
+/// бы незамеченным. Та же причина, по которой `runTool` отдаёт код возврата.
+func documentText(_ path: String) -> String {
+    let url = repositoryRoot.appendingPathComponent(path)
+    guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+        FileHandle.standardError.write("✗ нет документа \(path)\n".data(using: .utf8)!)
+        exit(1)
+    }
+    return text
+}
+
+/// Раздел разметки: от заголовка до следующего заголовка того же уровня.
+func documentSection(named heading: String, in text: String) -> String {
+    guard let start = text.range(of: heading) else { return "" }
+    let body = String(text[start.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let next = body.range(of: "\n## ") else { return body }
+    return String(body[..<next.lowerBound])
+}
+
+/// Строка в одну линию: переносы и отступы разметки схлопнуты в пробелы.
+/// Иначе «Move to Trash», разорванное переносом, не найдётся подстрокой.
+func flattened(_ text: String) -> String {
+    text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+}
+
+/// Путь первого запуска описан и в README, и в описании релиза: сборка
+/// подписана ad-hoc, и первый двойной щелчок macOS остановит. Без этого абзаца
+/// человек решит, что скачал сломанное приложение, а синяя кнопка по умолчанию
+/// в том окне — «Переместить в Корзину».
+///
+/// Названия даны парой, по-русски и по-английски: macOS у всех на разном
+/// языке, и человек ищет глазами ту самую строку. Разойтись двум текстам
+/// нельзя, поэтому проверка у них общая.
+func expectFirstRunNames(_ t: Runner, in text: String, line: Int = #line) {
+    let flat = flattened(text)
+    let names = [
+        "Переместить в Корзину", "Move to Trash",
+        "Конфиденциальность и безопасность", "Privacy & Security",
+        "Все равно открыть", "Open Anyway"
+    ]
+    for name in names {
+        t.expect(flat.contains(name), true, "не названо «\(name)»", line: line)
+    }
+}

@@ -23,24 +23,8 @@ func checkReleaseNotes(_ t: Runner) {
         t.expect(notes.contains("macOS 14"), true)
     }
 
-    t.test("В описании есть абзац про первый запуск") {
-        // Сборка подписана ad-hoc, и первый двойной щелчок macOS остановит.
-        // Без этого абзаца человек решит, что скачал сломанное приложение,
-        // а синяя кнопка в том окне — «Переместить в Корзину».
-        let notes = runTool("release-notes.sh", changes).printed
-        t.expect(notes.contains("Конфиденциальность и безопасность"), true)
-        t.expect(notes.contains("Все равно открыть"), true)
-        t.expect(notes.contains("Переместить в Корзину"), true)
-    }
-
-    t.test("Названия окон даны парой, по-русски и по-английски") {
-        // macOS у всех на разном языке, и человек ищет глазами ту самую
-        // строку: docs/install.md держит их таблицей пар, описание релиза —
-        // в скобках.
-        let notes = runTool("release-notes.sh", changes).printed
-        t.expect(notes.contains("Move to Trash"), true)
-        t.expect(notes.contains("Privacy & Security"), true)
-        t.expect(notes.contains("Open Anyway"), true)
+    t.test("В описании есть путь первого запуска, названия парой") {
+        expectFirstRunNames(t, in: runTool("release-notes.sh", changes).printed)
     }
 
     t.test("Ссылка ведёт в тот же репозиторий, куда уходит релиз") {
