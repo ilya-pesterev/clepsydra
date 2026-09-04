@@ -3,7 +3,7 @@ import ClepsydraCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
-    private var machine = TimerMachine()
+    private var machine = TimerMachine(durations: Settings.durations)
     private var statusItem: StatusItemController!
     private let overlay = OverlayController()
     private var ticker: Timer?
@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItemController(actions: .init(
             start: { [weak self] in self?.update { $0.start(at: Date()) } },
             reset: { [weak self] in self?.update { $0.reset() } },
+            setDurations: { [weak self] in self?.setDurations($0) },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
             setMode: { [weak self] in self?.setMode($0) },
             checkForUpdates: { [weak self] in self?.updates.checkNow() },
@@ -36,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.history ?? History()
         }, updateState: { [weak self] in
             self?.updates.state ?? .unknown
+        }, durations: { [weak self] in
+            self?.machine.durations ?? .standard
         })
 
         // Запасной выход с экрана. Во время перерыва он лишь убирает экран:
@@ -155,6 +158,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             lastSticker = quote
             return .sticker(quote, palette: .random(), photo: StathamPhotos.random())
         }
+    }
+
+    /// Выбранные в меню длины. Идущий интервал не трогаем: он держит дату
+    /// финиша, и сдвигать её посреди помидора значило бы обмануть отсчёт в
+    /// меню-баре. Новая длина работает со следующего интервала.
+    ///
+    /// Пишем без сравнения с прежним: щелчок по длине, которая уже стоит,
+    /// стоит одной записи в `UserDefaults` — а сравнение стоило бы того, что
+    /// правка мимо меню осталась бы в хранилище неперебитой.
+    private func setDurations(_ chosen: Durations) {
+        update {
+            $0.durations = chosen
+            return []
+        }
+        Settings.durations = chosen
     }
 
     private func setMode(_ newMode: QuoteMode) {

@@ -9,6 +9,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     struct Actions {
         let start: () -> Void
         let reset: () -> Void
+        let setDurations: (Durations) -> Void
         let toggleLaunchAtLogin: () -> Void
         let setMode: (QuoteMode) -> Void
         let checkForUpdates: () -> Void
@@ -32,16 +33,22 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Что известно об обновлении — спрашиваем так же, в момент открытия меню:
     /// тихая проверка могла ответить, пока меню было закрыто.
     private let updateState: () -> UpdateState
+    /// Какие длины работают прямо сейчас. Спрашиваем автомат, а не хранилище:
+    /// длину правят и мимо меню (ADR-0011), и до перезапуска автомат живёт со
+    /// старой. Галочка обязана стоять у той длины, по которой идёт отсчёт.
+    private let durations: () -> Durations
     private var phase: Phase = .idle
 
     init(
         actions: Actions,
         history: @escaping () -> History,
-        updateState: @escaping () -> UpdateState
+        updateState: @escaping () -> UpdateState,
+        durations: @escaping () -> Durations
     ) {
         self.actions = actions
         self.history = history
         self.updateState = updateState
+        self.durations = durations
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -117,6 +124,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             break
         }
 
+        // Длительности — подменю, а не строки в корне: выбирают их редко, а
+        // шесть строк выдавили бы вниз всё остальное (ADR-0011).
+        menu.addItem(lengths())
+
+        menu.addItem(.separator())
+
         // Режимы — группой с галочкой у выбранного: так видно, что их два и
         // какой сейчас работает. Одного переключателя для этого мало.
         let mode = Settings.quoteMode
@@ -174,6 +187,51 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return days
     }
 
+    /// Подменю с длинами: сначала помидор, потом перерыв, у выбранных длин —
+    /// галочка.
+    ///
+    /// Галочки может не оказаться ни одной: длину правят и мимо меню, через
+    /// `defaults write`. Тогда подменю честно показывает, что ни одна из
+    /// предложенных сейчас не работает.
+    private func lengths() -> NSMenuItem {
+        let chosen = durations()
+        let submenu = NSMenu()
+
+        group(titled: "Сессия", choices: Durations.pomodoroChoices, current: chosen.pomodoro,
+              in: submenu) { Durations(pomodoro: $0, breakInterval: chosen.breakInterval) }
+
+        submenu.addItem(.separator())
+
+        group(titled: "Перерыв", choices: Durations.breakChoices, current: chosen.breakInterval,
+              in: submenu) { Durations(pomodoro: chosen.pomodoro, breakInterval: $0) }
+
+        let item = NSMenuItem(title: "Длительность", action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
+    }
+
+    /// Группа длин под серой строкой-заголовком. Заголовок обязателен: без него
+    /// «5 минут» под «45 минут» не отличить от четвёртой длины помидора.
+    ///
+    /// `chosen` собирает пару целиком — щёлкнули по длине помидора, перерыв
+    /// остался прежним. Пара едет в `representedObject`: иначе под каждую длину
+    /// пришлось бы заводить свой `@objc`-метод.
+    private func group(
+        titled title: String,
+        choices: [TimeInterval],
+        current: TimeInterval,
+        in submenu: NSMenu,
+        chosen: (TimeInterval) -> Durations
+    ) {
+        submenu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
+        for length in choices {
+            let item = entry(DurationLabel.minutes(length), #selector(selectDurations))
+            item.representedObject = chosen(length)
+            item.state = length == current ? .on : .off
+            submenu.addItem(item)
+        }
+    }
+
     private func entry(_ title: String, _ selector: Selector) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
         item.target = self
@@ -182,6 +240,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func start() { actions.start() }
     @objc private func reset() { actions.reset() }
+
+    @objc private func selectDurations(_ sender: NSMenuItem) {
+        guard let chosen = sender.representedObject as? Durations else { return }
+        actions.setDurations(chosen)
+    }
+
     @objc private func toggleLaunchAtLogin() { actions.toggleLaunchAtLogin() }
     @objc private func selectPhilosophers() { actions.setMode(.philosophers) }
     @objc private func selectStatham() { actions.setMode(.statham) }

@@ -1,11 +1,12 @@
 import Foundation
 import ClepsydraCore
 
-/// То немногое, что переживает перезапуск: режим цитат, история по дням и
-/// результат последней проверки обновлений. Длительности зашиты, а запуск при
-/// входе живёт в системе, а не здесь.
+/// То немногое, что переживает перезапуск: выбранные длительности, режим цитат,
+/// история по дням и результат последней проверки обновлений. Запуск при входе
+/// живёт в системе, а не здесь.
 enum Settings {
 
+    private static let durationsKey = "durations"
     private static let modeKey = "quoteMode"
     private static let historyKey = "history"
     private static let lastUpdateCheckKey = "lastUpdateCheck"
@@ -14,6 +15,17 @@ enum Settings {
     // переезде, и после этого стирается.
     private static let tallyDayKey = "tallyDay"
     private static let tallySessionsKey = "tallySessions"
+
+    /// Выбранные длины помидора и перерыва. Пусто — прежние 25 и 5 минут;
+    /// разумность значений проверяет сам `Durations`, см. ADR-0011.
+    static var durations: Durations {
+        get {
+            Durations(stored: UserDefaults.standard.dictionary(forKey: durationsKey) ?? [:])
+        }
+        set {
+            UserDefaults.standard.set(newValue.stored, forKey: durationsKey)
+        }
+    }
 
     static var quoteMode: QuoteMode {
         get {

@@ -560,6 +560,7 @@ t.test("Дни сравниваются как даты") {
     t.expect(fourteenth < fourteenth, false)
 }
 
+checkDurations(t)
 checkBuildNumber(t)
 checkDmgName(t)
 checkReleaseTag(t)
