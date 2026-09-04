@@ -65,18 +65,17 @@ echo "    номер сборки: $BUILD"
 # это снимки реального человека, права на них не наши.
 if [[ -d Resources/statham ]]; then
     cp -R Resources/statham "$APP/Contents/Resources/statham"
-    echo "    фотографий для режима Стетхема: $(ls Resources/statham | wc -l | tr -d ' ')"
-else
-    echo "    Resources/statham нет — режим Стетхема покажет наклейки без фигуры"
 fi
 
 # Портреты философов — по имени автора латиницей, см. Quotes.portraits.
 if [[ -d Resources/philosophers ]]; then
     cp -R Resources/philosophers "$APP/Contents/Resources/philosophers"
-    echo "    портретов философов: $(ls Resources/philosophers | wc -l | tr -d ' ')"
-else
-    echo "    Resources/philosophers нет — философский режим покажет цитату без портрета"
 fi
+
+# Считает и называет их тот же скрипт, что и перед релизом. Код 2 — часть
+# картинок не доехала: для сборки это не отказ, для ./release.sh — повод
+# переспросить.
+./Tools/bundle-pictures.sh "$APP" || true
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 cp Resources/Clepsydra.icns "$APP/Contents/Resources/Clepsydra.icns"
 

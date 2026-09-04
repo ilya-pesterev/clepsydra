@@ -565,5 +565,7 @@ checkDmgName(t)
 checkReleaseTag(t)
 checkReleaseGate(t)
 checkReleaseNotes(t)
+checkOriginRepo(t)
+checkBundlePictures(t)
 
 t.finish()

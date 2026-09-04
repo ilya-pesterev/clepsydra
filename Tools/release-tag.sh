@@ -11,16 +11,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ASKED="${1:-}"
+ASKED_VERSION="${1:-}"
 PLIST="${2:-Resources/Info.plist}"
 
-if [[ -z "$ASKED" ]]; then
+if [[ -z "$ASKED_VERSION" ]]; then
     echo "ОШИБКА: не названа версия релиза, напр. ./release.sh 1.0." >&2
     exit 1
 fi
 
 # Букву v пишут и не пишут — тег всё равно один.
-ASKED="${ASKED#v}"
+ASKED_VERSION="${ASKED_VERSION#v}"
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null || true)"
 
@@ -29,8 +29,8 @@ if [[ -z "$VERSION" ]]; then
     exit 1
 fi
 
-if [[ "$ASKED" != "$VERSION" ]]; then
-    echo "ОШИБКА: просят релиз $ASKED, а в бандле версия $VERSION." >&2
+if [[ "$ASKED_VERSION" != "$VERSION" ]]; then
+    echo "ОШИБКА: просят релиз $ASKED_VERSION, а в бандле версия $VERSION." >&2
     echo "Поправьте CFBundleShortVersionString в $PLIST или назовите версию бандла." >&2
     exit 1
 fi

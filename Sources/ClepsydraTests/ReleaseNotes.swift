@@ -33,6 +33,22 @@ func checkReleaseNotes(_ t: Runner) {
         t.expect(notes.contains("Переместить в Корзину"), true)
     }
 
+    t.test("Названия окон даны парой, по-русски и по-английски") {
+        // macOS у всех на разном языке, и человек ищет глазами ту самую
+        // строку: docs/install.md держит их таблицей пар, описание релиза —
+        // в скобках.
+        let notes = runTool("release-notes.sh", changes).printed
+        t.expect(notes.contains("Move to Trash"), true)
+        t.expect(notes.contains("Privacy & Security"), true)
+        t.expect(notes.contains("Open Anyway"), true)
+    }
+
+    t.test("Ссылка ведёт в тот же репозиторий, куда уходит релиз") {
+        let notes = runTool("release-notes.sh", changes).printed
+        let repository = runTool("origin-repo.sh").printed
+        t.expect(notes.contains("https://github.com/\(repository)/blob/main/docs/install.md"), true)
+    }
+
     t.test("Файлы релиза названы теми же именами, что лягут рядом") {
         let notes = runTool("release-notes.sh", changes).printed
         t.expect(notes.contains("Clepsydra-1.0.dmg"), true)

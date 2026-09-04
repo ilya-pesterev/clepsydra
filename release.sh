@@ -3,7 +3,6 @@
 # релиза на GitHub — одной командой с машины автора.
 #
 #   ./release.sh 1.0        собрать, отметить тегом, положить черновиком
-#   ./release.sh 1.0 --yes  не переспрашивать про пустые папки с картинками
 #
 # Черновик — не оговорка: пока релиз в черновике, файл можно скачать и пройти
 # весь путь установки. Открыть его людям — отдельный шаг, команда напечатана
@@ -17,8 +16,11 @@ APP="Clepsydra.app"
 LAST_RELEASE_FILE=last-release-build
 CHANGES_DIRECTORY=docs/releases
 
-ASKED=""
-CONFIRM=true
+# Релизы уходят туда, где живёт код. Задачи заведены в другом репозитории,
+# и перепутанный origin отправил бы черновик с образом молча не туда.
+EXPECTED_REPOSITORY=ilya-pesterev/clepsydra
+
+ASKED_VERSION=""
 
 REPOSITORY=""   # owner/name, куда уходит релиз
 TAG=""          # v1.0
@@ -32,14 +34,16 @@ step() { echo "==> $1"; }
 
 fail() { echo "ОШИБКА: $1" >&2; exit 1; }
 
+# Описание собирается во временный файл — и убирается, чем бы ни кончилось.
+remove_notes() {
+    if [[ -n "$NOTES" ]]; then rm -f "$NOTES"; fi
+}
+trap remove_notes EXIT
+
 # Спрашивает, продолжать ли. Отказ — не ошибка сборки, но и не публикация.
 confirm() {
-    if [[ "$CONFIRM" == false ]]; then
-        echo "    --yes: подтверждения не спрашиваем"
-        return
-    fi
     if [[ ! -t 0 ]]; then
-        fail "спросить подтверждение некому — запуск не с терминала. Если так и задумано, добавьте --yes."
+        fail "спросить подтверждение некому — запуск не с терминала. Релиз собирают руками, с машины автора."
     fi
     local answer
     read -r -p "$1 [да/нет] " answer
@@ -49,21 +53,16 @@ confirm() {
     esac
 }
 
-count_files() {
-    if [[ ! -d "$1" ]]; then echo 0; return; fi
-    find "$1" -type f ! -name '.*' | wc -l | tr -d ' '
-}
-
 # --- Шаги ---------------------------------------------------------------------
 
 parse_arguments() {
     for argument in "$@"; do
         case "$argument" in
-            --yes) CONFIRM=false ;;
-            -*)    fail "неизвестный ключ $argument (есть --yes)." ;;
+            -*) fail "неизвестный ключ $argument — у выпуска ключей нет, только версия." ;;
             *)
-                [[ -z "$ASKED" ]] || fail "версию называют один раз, а не «$ASKED» и «$argument»."
-                ASKED="$argument"
+                [[ -z "$ASKED_VERSION" ]] \
+                    || fail "версию называют один раз, а не «$ASKED_VERSION» и «$argument»."
+                ASKED_VERSION="$argument"
                 ;;
         esac
     done
@@ -74,10 +73,10 @@ check_tools() {
     command -v gh >/dev/null || fail "нет gh — поставьте GitHub CLI: brew install gh."
     gh auth status >/dev/null 2>&1 || fail "gh не залогинен: gh auth login."
 
-    local url
-    url="$(git remote get-url origin 2>/dev/null)" || fail "нет remote origin — публиковать некуда."
-    REPOSITORY="$(sed -E 's#^.*github\.com[:/]##; s#\.git$##' <<< "$url")"
-    [[ "$REPOSITORY" == */* ]] || fail "origin ($url) не похож на репозиторий GitHub."
+    REPOSITORY="$(./Tools/origin-repo.sh)"
+    if [[ "$REPOSITORY" != "$EXPECTED_REPOSITORY" ]]; then
+        fail "origin — $REPOSITORY, а релизы уходят в $EXPECTED_REPOSITORY."
+    fi
     echo "    релиз уйдёт в $REPOSITORY"
 }
 
@@ -85,7 +84,7 @@ check_tools() {
 # релиз v1.0 с бандлом версии 0.9 — страница, которая обещает не то.
 check_version() {
     step "версия"
-    TAG="$(./Tools/release-tag.sh "$ASKED")"
+    TAG="$(./Tools/release-tag.sh "$ASKED_VERSION")"
     VERSION="${TAG#v}"
     echo "    $TAG"
 
@@ -129,35 +128,35 @@ check_tree() {
     echo "    $branch чист и отправлен"
 }
 
+# Сверяем до сборки, как build.sh: сбитые часы не должны отваливать выпуск
+# через десять минут после тестов. Номер к концу сборки только вырастет,
+# так что прошедшая проверка останется верной.
+check_build_number() {
+    step "ворота релиза"
+    local now
+    now="$(./Tools/build-number.sh)"
+    ./Tools/release-gate.sh "$now" "$LAST_RELEASE_FILE"
+}
+
 # Тесты прогоняет build.sh — до сборки бандла, до всего остального.
 build() {
     step "сборка"
     ./build.sh --dmg
 
+    # Номер релиза берётся из готового бандла, а не из времени: в
+    # last-release-build должно лечь то, что уехало людям.
     BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")"
-
-    step "ворота релиза"
-    ./Tools/release-gate.sh "$BUILD" "$LAST_RELEASE_FILE"
 }
 
 # Портретов и фотографий в репозитории нет — права на них не наши, и сборка
 # берёт их с машины автора. Молча выпустить сборку, где экран покажет цитату
-# без портрета, нельзя.
+# без портрета, нельзя: считает и называет их Tools/bundle-pictures.sh, тот же,
+# что печатает счёт в сборке, а код возврата 2 — это и есть повод переспросить.
 report_bundle_contents() {
-    step "что попало в бандл"
-    local portraits statham
-    portraits="$(count_files "$APP/Contents/Resources/philosophers")"
-    statham="$(count_files "$APP/Contents/Resources/statham")"
-    echo "    портретов философов: $portraits"
-    echo "    фотографий для режима Стетхема: $statham"
-
-    if [[ "$portraits" != 0 && "$statham" != 0 ]]; then return; fi
-
+    step "что уехало в бандл"
+    if ./Tools/bundle-pictures.sh "$APP"; then return; fi
     echo
-    echo "Часть экранов уйдёт в релиз без картинок:"
-    if [[ "$portraits" == 0 ]]; then echo "  философский режим покажет цитату без портрета"; fi
-    if [[ "$statham" == 0 ]]; then echo "  режим Стетхема покажет наклейки без фигуры"; fi
-    confirm "Выпускать такую сборку?"
+    confirm "Выпускать релиз с такой сборкой?"
 }
 
 # Артефактов в релизе будет больше одного: к DMG для первой установки встанет
@@ -165,7 +164,9 @@ report_bundle_contents() {
 # новому файлу тем же циклом.
 collect_artifacts() {
     step "контрольные суммы"
-    local artifacts=("$(./Tools/dmg-name.sh)")
+    local dmg
+    dmg="$(./Tools/dmg-name.sh)"
+    local artifacts=("$dmg")
     local file
     UPLOAD=()
     for file in "${artifacts[@]}"; do
@@ -184,6 +185,9 @@ create_tag() {
 
 publish_draft() {
     step "черновик релиза в $REPOSITORY"
+    # Развернуть пустой массив под set -u в bash 3.2 — «unbound variable»,
+    # а не внятный отказ. Проверяем длиной, она пустого массива не боится.
+    [[ ${#UPLOAD[@]} -gt 0 ]] || fail "к релизу нечего приложить."
     if ! gh release create "$TAG" \
             --repo "$REPOSITORY" \
             --draft \
@@ -212,6 +216,7 @@ check_tools
 check_version
 check_notes
 check_tree
+check_build_number
 build
 report_bundle_contents
 collect_artifacts
