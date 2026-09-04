@@ -2,6 +2,7 @@
 .build/
 Clepsydra.app/
 Clepsydra*.zip
+Clepsydra*.dmg
 Resources/statham/
 Resources/statham-originals/
 Resources/philosophers/

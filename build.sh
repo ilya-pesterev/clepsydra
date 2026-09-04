@@ -3,7 +3,12 @@
 # хватает Command Line Tools.
 #
 #   ./build.sh              ad-hoc подпись, только для своей машины
+#   ./build.sh --dmg        плюс Clepsydra-<версия>.dmg рядом с бандлом
 #   ./build.sh --release    Developer ID + нотаризация, для раздачи другим
+#
+# Флаги складываются: --release --dmg выпускает нотаризованный DMG.
+# Обычная сборка DMG не делает — монтировать том и ждать Finder на каждой
+# сборке для разработки незачем.
 #
 # Для релиза нужны переменные:
 #   DEV_ID          имя сертификата, напр. "Developer ID Application: Ivan Ivanov (AB12CD34EF)"
@@ -16,7 +21,18 @@ cd "$(dirname "$0")"
 APP="Clepsydra.app"
 CONFIG=release
 RELEASE=false
-[[ "${1:-}" == "--release" ]] && RELEASE=true
+DMG=false
+
+for argument in "$@"; do
+    case "$argument" in
+        --release) RELEASE=true ;;
+        --dmg)     DMG=true ;;
+        *)
+            echo "ОШИБКА: неизвестный ключ $argument (есть --release и --dmg)." >&2
+            exit 1
+            ;;
+    esac
+done
 
 # Номер сборки — время по UTC, см. docs/development.md.
 BUILD="$(./Tools/build-number.sh)"
@@ -80,6 +96,7 @@ cp Resources/Clepsydra.icns "$APP/Contents/Resources/Clepsydra.icns"
 if [[ "$RELEASE" == false ]]; then
     echo "==> ad-hoc подпись"
     codesign --force --sign - --options runtime "$APP"
+    if [[ "$DMG" == true ]]; then ./Tools/make-dmg.sh "$APP"; fi
     echo "==> готово: $(pwd)/$APP"
     echo "    Gatekeeper такую подпись отклонит — для раздачи нужен ./build.sh --release"
     lipo -archs "$APP/Contents/MacOS/Clepsydra"
@@ -131,8 +148,32 @@ echo "==> проверка Gatekeeper"
 spctl -a -vvv "$APP"
 xcrun stapler validate "$APP"
 
+if [[ "$DMG" == true ]]; then
+    ./Tools/make-dmg.sh "$APP"
+    DMG_FILE="$(./Tools/dmg-name.sh)"
+    # Сам образ тоже подписывается и нотаризуется: Gatekeeper проверяет
+    # скачанный файл, а не только приложение внутри него.
+    echo "==> подпись и нотаризация $DMG_FILE"
+    codesign --force --timestamp --sign "$IDENTITY" "$DMG_FILE"
+
+    if ! xcrun notarytool submit "$DMG_FILE" --keychain-profile "$PROFILE" --wait; then
+        echo "Нотаризация образа не прошла. Подробности:" >&2
+        echo "  xcrun notarytool history --keychain-profile $PROFILE" >&2
+        echo "  xcrun notarytool log <submission-id> --keychain-profile $PROFILE" >&2
+        echo "Бандл к этому моменту уже нотаризован — раздавайте $DIST," >&2
+        echo "пока образ не починен." >&2
+        exit 1
+    fi
+
+    xcrun stapler staple "$DMG_FILE"
+    spctl -a -t open --context context:primary-signature -vvv "$DMG_FILE"
+fi
+
 echo "$BUILD" > "$LAST_RELEASE_FILE"
 
 echo "==> готово: $(pwd)/$DIST — можно раздавать"
+if [[ "$DMG" == true ]]; then
+    echo "            $(pwd)/$DMG_FILE — то же самое для тех, кто не знает про zip"
+fi
 echo "    номер релиза $BUILD записан в $LAST_RELEASE_FILE — закоммитьте файл"
 lipo -archs "$APP/Contents/MacOS/Clepsydra"

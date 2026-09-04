@@ -561,5 +561,6 @@ t.test("Дни сравниваются как даты") {
 }
 
 checkBuildNumber(t)
+checkDmgName(t)
 
 t.finish()
