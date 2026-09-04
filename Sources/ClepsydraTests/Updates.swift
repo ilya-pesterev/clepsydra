@@ -159,7 +159,7 @@ func checkUpdates(_ t: Runner) {
                  "https://github.com/ilya-pesterev/clepsydra/releases/latest/download/updates.json")
     }
 
-    t.test("Пункт «Обновить» ведёт на страницу последнего релиза") {
+    t.test("Запасной путь ведёт на страницу последнего релиза") {
         t.expect(UpdateFeed.releasePage.absoluteString,
                  "https://github.com/ilya-pesterev/clepsydra/releases/latest")
     }

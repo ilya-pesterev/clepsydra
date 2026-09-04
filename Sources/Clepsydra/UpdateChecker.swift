@@ -48,8 +48,8 @@ final class UpdateChecker {
         check(now: Date())
     }
 
-    /// Щелчок по «Обновить до 1.1» — страница релиза в браузере. Ставить
-    /// обновление приложение пока не умеет.
+    /// Страница релиза в браузере — запасной путь для `UpdateInstaller`:
+    /// установить на месте не вышло, и человек ставит руками, как раньше.
     func openReleasePage() {
         NSWorkspace.shared.open(UpdateFeed.releasePage)
     }

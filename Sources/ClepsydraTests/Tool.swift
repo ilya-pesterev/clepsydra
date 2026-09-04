@@ -14,9 +14,23 @@ let repositoryRoot = URL(fileURLWithPath: #filePath)
 /// удаления скрипта. Ошибки скрипт печатает в stderr, и в выводе прогона они
 /// лишние — отрицательных случаев здесь больше, чем положительных.
 func runTool(_ name: String, _ arguments: String...) -> (printed: String, status: Int32) {
+    runTool(name, arguments: arguments)
+}
+
+/// То же самое, но с переменными окружения и списком вместо перечисления:
+/// ключ обновления приходит скриптам подписи именно так, и прогон подписывает
+/// своим ключом, не заглядывая в связку ключей.
+func runTool(
+    _ name: String,
+    environment extra: [String: String] = [:],
+    arguments: [String]
+) -> (printed: String, status: Int32) {
     let process = Process()
     process.executableURL = repositoryRoot.appendingPathComponent("Tools/\(name)")
     process.arguments = arguments
+    if !extra.isEmpty {
+        process.environment = ProcessInfo.processInfo.environment.merging(extra) { _, new in new }
+    }
     let out = Pipe()
     process.standardOutput = out
     process.standardError = FileHandle.nullDevice
@@ -71,6 +85,21 @@ func documentText(_ path: String) -> String {
         exit(1)
     }
     return text
+}
+
+/// Значение из `Resources/Info.plist` — того самого, что build.sh кладёт в
+/// бандл. Читается, а не переписывается в прогон строкой: половина проверок
+/// про то, что plist и скрипты выпуска говорят одно и то же.
+func bundlePlistValue(_ key: String) -> Any? {
+    let url = repositoryRoot.appendingPathComponent("Resources/Info.plist")
+    guard let data = try? Data(contentsOf: url),
+          let plist = try? PropertyListSerialization.propertyList(from: data, format: nil),
+          let fields = plist as? [String: Any]
+    else {
+        FileHandle.standardError.write("✗ не читается Resources/Info.plist\n".data(using: .utf8)!)
+        exit(1)
+    }
+    return fields[key]
 }
 
 /// Раздел разметки: от заголовка до следующего заголовка того же уровня.

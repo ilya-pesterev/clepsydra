@@ -41,13 +41,14 @@ func checkUpdateFeed(_ t: Runner) {
         t.expect(feed.fields["notes"]?.contains("Пункт «Обновить» в меню."), true)
     }
 
-    t.test("Адрес архива ведёт на образ того самого выпуска") {
+    t.test("Адрес архива ведёт на архив обновления того самого выпуска") {
         // Не на releases/latest: фид описывает конкретную версию, и «последний»
-        // за время между чтением фида и скачиванием успеет смениться.
-        let dmg = runTool("dmg-name.sh", "--published").printed
+        // за время между чтением фида и скачиванием успеет смениться. И не на
+        // образ: ставит обновление установщик, а он разворачивает архив.
+        let archive = runTool("update-archive.sh", "--name").printed
         let repository = runTool("origin-repo.sh").printed
         t.expect(published().fields["archive"],
-                 "https://github.com/\(repository)/releases/download/v1.1/\(dmg)")
+                 "https://github.com/\(repository)/releases/download/v1.1/\(archive)")
     }
 
     t.test("Приложение разбирает то, что кладёт выпуск") {

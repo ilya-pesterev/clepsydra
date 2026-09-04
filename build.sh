@@ -19,6 +19,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="Clepsydra.app"
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+# Версия фреймворка у Sparkle называется буквой B — так и лежит внутри
+# XCFramework. Имя в одном месте: сменись оно, сборка отвалится на подписи,
+# а не выпустит молча бандл без половины содержимого.
+SPARKLE_VERSION="$SPARKLE/Versions/B"
 CONFIG=release
 RELEASE=false
 DMG=false
@@ -33,6 +38,22 @@ for argument in "$@"; do
             ;;
     esac
 done
+
+# Подписывает бандл целиком, изнутри наружу. Порядок не вкусовщина: подпись
+# внешнего бандла запечатывает то, что уже подписано внутри, и фреймворк,
+# подписанный последним, сломал бы подпись приложения.
+#
+#   sign_bundle -                                        ad-hoc
+#   sign_bundle "$IDENTITY" --timestamp --options runtime
+sign_bundle() {
+    local identity="$1"
+    shift
+    codesign --force --sign "$identity" "$@" \
+        "$SPARKLE_VERSION/Updater.app" \
+        "$SPARKLE_VERSION/Autoupdate" \
+        "$SPARKLE" \
+        "$APP"
+}
 
 # Номер сборки — время по UTC, см. docs/development.md.
 BUILD="$(./Tools/build-number.sh)"
@@ -51,12 +72,36 @@ swift run -c "$CONFIG" --arch arm64 ClepsydraTests
 echo "==> swift build ($CONFIG, arm64)"
 swift build -c "$CONFIG" --arch arm64 --product Clepsydra
 
-BIN="$(swift build -c "$CONFIG" --arch arm64 --show-bin-path)/Clepsydra"
+BIN_PATH="$(swift build -c "$CONFIG" --arch arm64 --show-bin-path)"
+BIN="$BIN_PATH/Clepsydra"
 
 echo "==> сборка бандла $APP"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/Clepsydra"
+
+# Фреймворк установщика едет внутри бандла: обновление ставится на месте, и
+# ищет его исполняемый файл рядом с собой (@executable_path/../Frameworks,
+# см. Package.swift). Без него приложение не запустится вовсе.
+#
+# ditto, а не cp: внутри фреймворка символические ссылки (Versions/Current),
+# и подпись после копирования обычным cp не сходится.
+ditto "$BIN_PATH/Sparkle.framework" "$SPARKLE"
+
+# XPC-службы Sparkle нужны приложению в песочнице — оно ходит в сеть и ставит
+# обновление через них. Clepsydra не в песочнице, делает то и другое сама, и
+# лишние исполняемые файлы в бандле только увеличивают то, что приходится
+# подписывать и за что отвечать.
+#
+# Заголовки и модули нужны тому, кто собирается с фреймворком, а не тому, кто
+# его запускает: в бандл они едут мёртвым грузом.
+#
+# Ссылка с верхнего уровня фреймворка убирается вместе с папкой: оставленная
+# в одиночестве, она указывает в пустоту — и уезжает такой людям.
+for unused in XPCServices Headers PrivateHeaders Modules; do
+    rm -rf "$SPARKLE_VERSION/$unused" "$SPARKLE/$unused"
+done
+
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
 echo "    номер сборки: $BUILD"
@@ -81,7 +126,14 @@ cp Resources/Clepsydra.icns "$APP/Contents/Resources/Clepsydra.icns"
 
 if [[ "$RELEASE" == false ]]; then
     echo "==> ad-hoc подпись"
-    codesign --force --sign - --options runtime "$APP"
+    # Без --options runtime, и это не забывчивость. Hardened runtime включает
+    # library validation: приложение соглашается грузить только те библиотеки,
+    # что подписаны тем же Team ID. У ad-hoc подписи Team ID нет вовсе, и
+    # собственный Sparkle.framework в бандле после такой подписи не грузится —
+    # приложение не запускается вообще. Hardened runtime нужен нотаризации,
+    # а её в этой ветке нет.
+    sign_bundle -
+    codesign --verify --strict "$APP"
     if [[ "$DMG" == true ]]; then ./Tools/make-dmg.sh "$APP"; fi
     echo "==> готово: $(pwd)/$APP"
     echo "    Gatekeeper такую подпись отклонит — для раздачи нужен ./build.sh --release"
@@ -104,8 +156,10 @@ fi
 PROFILE="${NOTARY_PROFILE:-clepsydra}"
 
 echo "==> подпись: $IDENTITY"
-# --timestamp обязателен для нотаризации, --options runtime включает hardened runtime
-codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP"
+# --timestamp обязателен для нотаризации, --options runtime включает hardened runtime.
+# Здесь он безопасен: и фреймворк, и приложение подписаны одним Developer ID,
+# и library validation находит один Team ID у обоих.
+sign_bundle "$IDENTITY" --timestamp --options runtime
 codesign --verify --strict --verbose=2 "$APP"
 
 echo "==> отправка на нотаризацию (профиль $PROFILE)"

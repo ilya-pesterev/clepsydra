@@ -12,7 +12,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let toggleLaunchAtLogin: () -> Void
         let setMode: (QuoteMode) -> Void
         let checkForUpdates: () -> Void
-        let openUpdate: () -> Void
+        let installUpdate: () -> Void
         let showAbout: () -> Void
         let quit: () -> Void
     }
@@ -152,11 +152,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// открыв меню снова, — щелчок его закрывает.
     private func updateEntry() -> NSMenuItem {
         let state = updateState()
-        // Знаем про новую версию — ведём на страницу релиза; во всех
-        // остальных лицах пункт проверяет. «Установлена последняя версия» —
-        // и ответ на прошлый щелчок, и приглашение спросить снова.
+        // Знаем про новую версию — ставим её; во всех остальных лицах пункт
+        // проверяет. «Установлена последняя версия» — и ответ на прошлый
+        // щелчок, и приглашение спросить снова.
         if case .ready = state {
-            return entry(UpdateLabel.title(for: state), #selector(openUpdate))
+            return entry(UpdateLabel.title(for: state), #selector(installUpdate))
         }
         return entry(UpdateLabel.title(for: state), #selector(checkForUpdates))
     }
@@ -186,7 +186,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func selectPhilosophers() { actions.setMode(.philosophers) }
     @objc private func selectStatham() { actions.setMode(.statham) }
     @objc private func checkForUpdates() { actions.checkForUpdates() }
-    @objc private func openUpdate() { actions.openUpdate() }
+    @objc private func installUpdate() { actions.installUpdate() }
     @objc private func showAbout() { actions.showAbout() }
     @objc private func quit() { actions.quit() }
 }

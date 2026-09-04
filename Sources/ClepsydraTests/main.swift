@@ -570,5 +570,8 @@ checkBundlePictures(t)
 checkReadme(t)
 checkUpdates(t)
 checkUpdateFeed(t)
+checkSignUpdate(t)
+checkInstallerFeed(t)
+checkUpdateInstaller(t)
 
 t.finish()

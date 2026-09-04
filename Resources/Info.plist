@@ -18,5 +18,15 @@
     <key>NSHighResolutionCapable</key> <true/>
     <key>NSSupportsAutomaticTermination</key><false/>
     <key>NSSupportsSuddenTermination</key><false/>
+    <!-- Обновление ставится на месте, см. docs/adr/0010-update-installs-itself.md. -->
+    <!-- Фид установщика: тот же постоянный адрес, что и у фида приложения. -->
+    <key>SUFeedURL</key>               <string>https://github.com/ilya-pesterev/clepsydra/releases/latest/download/updates.xml</string>
+    <!-- Открытая половина ключа EdDSA; закрытая живёт в связке ключей автора.
+         Печатает её ./Tools/sign-update.swift --public. Без неё установщик не
+         заводится, и «Обновить» открывает страницу релиза, как раньше. -->
+    <key>SUPublicEDKey</key>           <string>UComlqa6VNTVOXrmepoK446EBNlZK8bEcwH4ZVLDSDg=</string>
+    <!-- Проверяет обновления сама Clepsydra: раз в сутки и молча (ADR-0009).
+         Второе расписание в лицо человеку — ровно то, чего здесь быть не должно. -->
+    <key>SUEnableAutomaticChecks</key> <false/>
 </dict>
 </plist>

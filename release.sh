@@ -29,7 +29,9 @@ BUILD=""        # номер сборки из готового бандла
 CHANGES=""      # docs/releases/1.0.md
 NOTES=""        # собранное описание релиза, файл
 PUBLISHED=""    # копия образа под именем, под которым он уходит в релиз
+ARCHIVE=""      # архив обновления: им обновление ставится на месте
 FEED=""         # фид обновлений, собранный на время выпуска
+INSTALLER_FEED=""  # фид установщика, собранный на время выпуска
 UPLOAD=()       # что прикладывается к релизу
 
 step() { echo "==> $1"; }
@@ -41,7 +43,9 @@ fail() { echo "ОШИБКА: $1" >&2; exit 1; }
 remove_leftovers() {
     if [[ -n "$NOTES" ]]; then rm -f "$NOTES"; fi
     if [[ -n "$PUBLISHED" ]]; then rm -f "$PUBLISHED" "$PUBLISHED.sha256"; fi
+    if [[ -n "$ARCHIVE" ]]; then rm -f "$ARCHIVE" "$ARCHIVE.sha256"; fi
     if [[ -n "$FEED" ]]; then rm -f "$FEED"; fi
+    if [[ -n "$INSTALLER_FEED" ]]; then rm -f "$INSTALLER_FEED"; fi
 }
 trap remove_leftovers EXIT
 
@@ -102,6 +106,27 @@ check_version() {
     if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
         fail "релиз $TAG в $REPOSITORY уже создан."
     fi
+}
+
+# Ключ обновления сверяется до сборки, как и всё, что может отвалиться.
+#
+# Архив, подписанный ключом, чья открытая половина не уехала в бандле, не
+# поставится ни на одну установленную копию — и узнал бы об этом автор уже
+# после выпуска, когда чинить нечем: обновление до следующей версии эти копии
+# принять не смогут. Поэтому сверяем половины друг с другом здесь.
+check_update_key() {
+    step "ключ обновления"
+    local mine published
+    mine="$(./Tools/sign-update.swift --public)"
+    published="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Resources/Info.plist 2>/dev/null || true)"
+
+    if [[ -z "$published" ]]; then
+        fail "в Resources/Info.plist пустой SUPublicEDKey — впишите туда $mine и закоммитьте."
+    fi
+    if [[ "$published" != "$mine" ]]; then
+        fail "SUPublicEDKey в бандле ($published) не от того ключа, которым подписывается архив ($mine)."
+    fi
+    echo "    открытая половина в бандле — от того же ключа"
 }
 
 # Описание собирается до сборки: файл со списком изменений забывают чаще, чем
@@ -181,7 +206,13 @@ collect_artifacts() {
     rm -f "$PUBLISHED"
     cp "$built" "$PUBLISHED"
     echo "    $built уходит в релиз как $PUBLISHED"
-    local artifacts=("$PUBLISHED")
+
+    # Архив обновления: образ человек монтирует и перетаскивает, а этот файл
+    # разворачивает установщик. Собирается из того же бандла, что уехал в образ.
+    ARCHIVE="$(./Tools/update-archive.sh "$APP")"
+    echo "    архив обновления: $ARCHIVE"
+
+    local artifacts=("$PUBLISHED" "$ARCHIVE")
     local file
     UPLOAD=()
     for file in "${artifacts[@]}"; do
@@ -202,6 +233,18 @@ build_feed() {
     ./Tools/update-feed.sh "$VERSION" "$BUILD" "$CHANGES" > "$FEED"
     UPLOAD+=("$FEED")
     echo "    $FEED: версия $VERSION, сборка $BUILD"
+}
+
+# Фид установщика: тот же выпуск на языке Sparkle — адрес архива, его размер и
+# подпись EdDSA. По нему обновление скачивается и ставится на месте. Имя тоже
+# постоянное, и по той же причине: адрес releases/latest/download/<имя> должен
+# пережить все следующие выпуски.
+build_installer_feed() {
+    step "фид установщика"
+    INSTALLER_FEED="$(./Tools/update-installer-feed.sh --name)"
+    ./Tools/update-installer-feed.sh "$VERSION" "$BUILD" "$ARCHIVE" > "$INSTALLER_FEED"
+    UPLOAD+=("$INSTALLER_FEED")
+    echo "    $INSTALLER_FEED: архив $ARCHIVE подписан ключом обновления"
 }
 
 create_tag() {
@@ -241,6 +284,7 @@ record_build_number() {
 parse_arguments "$@"
 check_tools
 check_version
+check_update_key
 check_notes
 check_tree
 check_build_number
@@ -248,6 +292,7 @@ build
 report_bundle_contents
 collect_artifacts
 build_feed
+build_installer_feed
 create_tag
 publish_draft
 record_build_number

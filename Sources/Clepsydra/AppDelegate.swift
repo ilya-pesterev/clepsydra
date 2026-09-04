@@ -12,9 +12,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mode: QuoteMode = Settings.quoteMode
     private var history: History = Settings.history
     private let updates = UpdateChecker()
+    private var installer: UpdateInstaller!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+
+        // Установщик обновлений. Заводится тут, но до первого щелчка по
+        // «Обновить до 1.1» ничего не делает — ни сети, ни расписания.
+        installer = UpdateInstaller(openReleasePage: { [weak self] in
+            self?.updates.openReleasePage()
+        })
 
         statusItem = StatusItemController(actions: .init(
             start: { [weak self] in self?.update { $0.start(at: Date()) } },
@@ -22,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
             setMode: { [weak self] in self?.setMode($0) },
             checkForUpdates: { [weak self] in self?.updates.checkNow() },
-            openUpdate: { [weak self] in self?.updates.openReleasePage() },
+            installUpdate: { [weak self] in self?.installer.install() },
             showAbout: { About.show() },
             quit: { NSApp.terminate(nil) }
         ), history: { [weak self] in

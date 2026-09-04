@@ -51,12 +51,10 @@ if [[ -z "$(tr -d '[:space:]' < "$CHANGES")" ]]; then
     exit 1
 fi
 
-# Адрес архива ведёт на образ того самого выпуска, а не на releases/latest:
-# фид описывает конкретную версию, и «последний» за время между чтением фида
-# и скачиванием успеет смениться.
-REPOSITORY="$(./Tools/origin-repo.sh)"
-DMG="$(./Tools/dmg-name.sh --published)"
-ARCHIVE="https://github.com/$REPOSITORY/releases/download/v$VERSION/$DMG"
+# Адрес архива обновления — тот файл, который разворачивает установщик, а не
+# образ. Собирает адрес Tools/release-asset-url.sh, один на оба фида: тот же
+# адрес стоит в фиде установщика, и разойтись им негде.
+ARCHIVE="$(./Tools/release-asset-url.sh "$VERSION" "$(./Tools/update-archive.sh --name)")"
 
 # Описание пишется руками, а в JSON попадает строкой: кавычки, косые, табуляции
 # и переносы экранируются, иначе фид не разберётся и обновления никто не увидит.
