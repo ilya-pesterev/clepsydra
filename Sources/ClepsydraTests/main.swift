@@ -560,4 +560,6 @@ t.test("Дни сравниваются как даты") {
     t.expect(fourteenth < fourteenth, false)
 }
 
+checkBuildNumber(t)
+
 t.finish()
