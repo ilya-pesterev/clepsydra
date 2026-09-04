@@ -30,8 +30,10 @@ func checkBuildNumber(_ t: Runner) {
             .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) }
             as? [String: Any] ?? [:]
 
+        let version = info["CFBundleShortVersionString"] as? String ?? ""
         t.expect(info["CFBundleVersion"] as? String, "0", "настоящий номер ставит build.sh")
-        t.expect(info["CFBundleShortVersionString"] as? String, "1.0",
-                 "человеческая версия от номера сборки не зависит")
+        t.expect(version.isEmpty, false, "человеческая версия в репозитории есть")
+        t.expect(version.allSatisfy(\.isNumber), false,
+                 "человеческая версия — не номер сборки и от него не зависит")
     }
 }

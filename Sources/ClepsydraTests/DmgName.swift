@@ -6,8 +6,11 @@ import Foundation
 func checkDmgName(_ t: Runner) {
 
     t.test("Имя DMG — Clepsydra и версия из Info.plist") {
+        // Версия берётся из бандла, а не пишется здесь строкой: она растёт с
+        // каждым выпуском, и прогон не должен краснеть от этого.
+        let version = bundlePlistValue("CFBundleShortVersionString") as? String ?? ""
         let run = runTool("dmg-name.sh")
-        t.expect(run.printed, "Clepsydra-1.0.dmg")
+        t.expect(run.printed, "Clepsydra-\(version).dmg")
         t.expect(run.status, 0)
     }
 

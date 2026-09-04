@@ -5,20 +5,25 @@ import Foundation
 /// версия бандла — одно и то же число, разойтись им нельзя.
 func checkReleaseTag(_ t: Runner) {
 
+    // Версия бандла берётся из Info.plist, а не пишется здесь строкой: она
+    // растёт с каждым выпуском, и прогон не должен краснеть от этого.
+    let version = bundlePlistValue("CFBundleShortVersionString") as? String ?? ""
+
     t.test("Тег — названная версия с буквой v") {
-        let run = runTool("release-tag.sh", "1.0")
-        t.expect(run.printed, "v1.0")
+        let run = runTool("release-tag.sh", version)
+        t.expect(run.printed, "v\(version)")
         t.expect(run.status, 0)
     }
 
     t.test("Версию называют и с буквой v, и без неё") {
-        t.expect(runTool("release-tag.sh", "v1.0").printed, "v1.0")
+        t.expect(runTool("release-tag.sh", "v\(version)").printed, "v\(version)")
     }
 
     t.test("Версия не та, что в бандле, — отказ до публикации") {
+        // 0.9 не станет версией бандла никогда: номера только растут.
         let run = runTool("release-tag.sh", "0.9")
         t.expect(run.printed, "", "тега быть не должно")
-        t.expect(run.status, 1, "релиз v0.9 с бандлом версии 1.0 не создаётся")
+        t.expect(run.status, 1, "релиз v0.9 с бандлом версии \(version) не создаётся")
     }
 
     t.test("Версию надо назвать вслух") {
