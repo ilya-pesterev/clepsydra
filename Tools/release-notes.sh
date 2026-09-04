@@ -7,12 +7,10 @@
 # приложение.
 #
 #   ./Tools/release-notes.sh docs/releases/1.0.md
-#   ./Tools/release-notes.sh docs/releases/1.0.md путь/Info.plist   для тестов
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CHANGES="${1:-}"
-PLIST="${2:-Resources/Info.plist}"
 
 if [[ -z "$CHANGES" || ! -f "$CHANGES" ]]; then
     echo "ОШИБКА: нет файла с описанием изменений: ${CHANGES:-не назван}." >&2
@@ -26,8 +24,9 @@ if [[ -z "$(tr -d '[:space:]' < "$CHANGES")" ]]; then
 fi
 
 # Имя образа собирает dmg-name.sh, адрес — origin-repo.sh: в описании и файл,
-# и ссылка должны звать туда же, куда уходит сам релиз.
-DMG="$(./Tools/dmg-name.sh "$PLIST")"
+# и ссылка должны звать туда же, куда уходит сам релиз. Имя берётся релизное,
+# без версии: под ним образ и лежит на странице.
+DMG="$(./Tools/dmg-name.sh --published)"
 REPOSITORY="$(./Tools/origin-repo.sh)"
 
 cat "$CHANGES"

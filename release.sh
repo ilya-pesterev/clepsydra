@@ -28,17 +28,20 @@ VERSION=""      # 1.0
 BUILD=""        # номер сборки из готового бандла
 CHANGES=""      # docs/releases/1.0.md
 NOTES=""        # собранное описание релиза, файл
+PUBLISHED=""    # копия образа под именем, под которым он уходит в релиз
 UPLOAD=()       # что прикладывается к релизу
 
 step() { echo "==> $1"; }
 
 fail() { echo "ОШИБКА: $1" >&2; exit 1; }
 
-# Описание собирается во временный файл — и убирается, чем бы ни кончилось.
-remove_notes() {
+# Описание и копия образа под релизным именем нужны только на время выпуска —
+# и убираются, чем бы он ни кончился. Рядом остаётся собранный Clepsydra-<версия>.dmg.
+remove_leftovers() {
     if [[ -n "$NOTES" ]]; then rm -f "$NOTES"; fi
+    if [[ -n "$PUBLISHED" ]]; then rm -f "$PUBLISHED" "$PUBLISHED.sha256"; fi
 }
-trap remove_notes EXIT
+trap remove_leftovers EXIT
 
 # Спрашивает, продолжать ли. Отказ — не ошибка сборки, но и не публикация.
 confirm() {
@@ -162,11 +165,21 @@ report_bundle_contents() {
 # Артефактов в релизе будет больше одного: к DMG для первой установки встанет
 # архив для обновления. Поэтому список, а не переменная, — сумма посчитается
 # новому файлу тем же циклом.
+#
+# Образ уходит под именем без версии: первый пункт «Установки» в README ведёт
+# на releases/latest/download/<имя>, и переименование образа от релиза к релизу
+# ломало бы эту ссылку каждый раз. Собранный файл имя с версией сохраняет —
+# копия под релизным именем живёт только до конца выпуска.
 collect_artifacts() {
     step "контрольные суммы"
-    local dmg
-    dmg="$(./Tools/dmg-name.sh)"
-    local artifacts=("$dmg")
+    local built
+    built="$(./Tools/dmg-name.sh)"
+    [[ -f "$built" ]] || fail "нет файла $built — сборка не положила то, что обещала."
+    PUBLISHED="$(./Tools/dmg-name.sh --published)"
+    rm -f "$PUBLISHED"
+    cp "$built" "$PUBLISHED"
+    echo "    $built уходит в релиз как $PUBLISHED"
+    local artifacts=("$PUBLISHED")
     local file
     UPLOAD=()
     for file in "${artifacts[@]}"; do

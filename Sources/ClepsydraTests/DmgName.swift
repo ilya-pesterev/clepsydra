@@ -15,6 +15,20 @@ func checkDmgName(_ t: Runner) {
         t.expect(runTool("dmg-name.sh", temporaryPlist(version: "2.5")).printed, "Clepsydra-2.5.dmg")
     }
 
+    t.test("В релизе образ лежит под именем без версии") {
+        // На это имя ведёт первый пункт «Установки» в README через
+        // releases/latest/download: версия в нём сделала бы ссылку одноразовой.
+        let run = runTool("dmg-name.sh", "--published")
+        t.expect(run.printed, "Clepsydra.dmg")
+        t.expect(run.status, 0)
+    }
+
+    t.test("Релизному имени plist не нужен") {
+        // Версии оно не знает, поэтому и не спрашивает: plist без версии
+        // отваливает сборку рядом, но не публикацию.
+        t.expect(runTool("dmg-name.sh", "--published", temporaryPlist(version: "")).printed, "Clepsydra.dmg")
+    }
+
     t.test("Plist без версии — не имя с дырой, а провал") {
         let run = runTool("dmg-name.sh", temporaryPlist(version: ""))
         t.expect(run.printed, "", "пустая версия дала бы Clepsydra-.dmg")

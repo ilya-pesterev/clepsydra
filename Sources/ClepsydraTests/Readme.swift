@@ -13,12 +13,17 @@ func checkReadme(_ t: Runner) {
 
     t.test("«Установка» начинается ссылкой на сам образ") {
         // Не на страницу релизов и не на конкретный тег: адрес
-        // `releases/latest/download` не устаревает вместе с версией и отдаёт
-        // файл сразу, без промежуточной страницы, на которой человек ищет,
-        // что из приложенного качать.
+        // `releases/latest/download` отдаёт файл сразу, без промежуточной
+        // страницы, на которой человек ищет, что из приложенного качать.
+        //
+        // Держится это на имени образа: ссылка живёт, только пока релиз
+        // выкладывает файл под тем же именем, что названо здесь.
+        let published = runTool("dmg-name.sh", "--published").printed
         let firstLine = installSection.split(separator: "\n").first.map(String.init) ?? ""
-        t.expect(firstLine.contains("/releases/latest/download/"), true, "первая строка раздела — скачивание образа")
-        t.expect(firstLine.contains(".dmg"), true, "ссылка ведёт на образ, а не на страницу")
+        t.expect(firstLine.contains("/releases/latest/download/\(published)"), true,
+                 "первая строка раздела — скачивание \(published)")
+        t.expect(matches(of: "download/[^)]*[0-9]", in: firstLine), [],
+                 "версия в имени образа сделала бы ссылку одноразовой: с выходом 1.1 она отдаст 404")
         t.expect(installSection.contains("git clone"), false, "установка — не сборка")
     }
 

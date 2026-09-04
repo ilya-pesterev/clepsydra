@@ -33,15 +33,14 @@ func checkReleaseNotes(_ t: Runner) {
         t.expect(notes.contains("https://github.com/\(repository)/blob/main/docs/install.md"), true)
     }
 
-    t.test("Файлы релиза названы теми же именами, что лягут рядом") {
+    t.test("Файлы релиза названы теми же именами, под которыми выложены") {
+        // Описание учит проверять сумму по имени файла: разойдись оно с тем,
+        // что приложено к релизу, и команда из описания не сработает.
         let notes = runTool("release-notes.sh", changes).printed
-        t.expect(notes.contains("Clepsydra-1.0.dmg"), true)
-        t.expect(notes.contains("Clepsydra-1.0.dmg.sha256"), true)
-    }
-
-    t.test("Версия в описании следует за Info.plist, а не за скриптом") {
-        let notes = runTool("release-notes.sh", changes, temporaryPlist(version: "2.5")).printed
-        t.expect(notes.contains("Clepsydra-2.5.dmg"), true)
+        let published = runTool("dmg-name.sh", "--published").printed
+        t.expect(notes.contains(published), true)
+        t.expect(notes.contains("\(published).sha256"), true)
+        t.expect(notes.contains("Clepsydra-1.0.dmg"), false, "имя с версией уходит только в сборку рядом")
     }
 
     t.test("Без списка изменений описание не собирается") {
