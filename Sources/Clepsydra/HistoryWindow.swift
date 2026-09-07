@@ -23,7 +23,7 @@ final class HistoryController {
     func show() {
         let window = self.window ?? HistoryWindow()
         self.window = window
-        window.show(rows: rows())
+        window.show(content: content())
     }
 
     /// История подросла. Окно на экране пересобираем на месте — молча, не
@@ -33,15 +33,27 @@ final class HistoryController {
     /// щелчке.
     func refresh() {
         guard let window, window.isVisible else { return }
-        window.render(rows: rows())
+        window.render(content: content())
     }
 
-    /// Строки окна. День, чьё число в хранилище не похоже на дату, выпадает
-    /// молча — так же, как выпадал из подменю.
-    private func rows() -> [String] {
+    /// Что показывает окно: итог и строки дней. День, чьё число в хранилище не
+    /// похоже на дату, выпадает молча — так же, как выпадал из подменю.
+    private func content() -> HistoryContent {
+        let history = self.history()
         let today = Day(of: Date())
-        return history().days.compactMap { TallyLabel.day($0, relativeTo: today) }
+        return HistoryContent(
+            summary: history.summary.map { SummaryLabel.lines($0, relativeTo: today) } ?? [],
+            rows: history.days.compactMap { TallyLabel.day($0, relativeTo: today) }
+        )
     }
+}
+
+/// Содержимое окна: итог над списком и сам список. Одной величиной, а не двумя
+/// параметрами, — итог и дни считаются вместе и вместе же обязаны меняться,
+/// иначе окно покажет итог не тех дней, что показывает списком.
+struct HistoryContent: Equatable {
+    let summary: [String]
+    let rows: [String]
 }
 
 /// Обычное окно, а не экран: с заголовком, красной кнопкой и ⌘W.
@@ -51,9 +63,11 @@ final class HistoryWindow: NSWindow {
     /// та же клавиша отдаёт «ц», и по одному символу ⌘W не узнать.
     private static let wKeyCode: UInt16 = 13
 
-    private static let size = NSSize(width: 320, height: 420)
+    private static let size = NSSize(width: 360, height: 460)
 
-    private let content = NSHostingView(rootView: HistoryView(rows: []))
+    private let content = NSHostingView(
+        rootView: HistoryView(content: HistoryContent(summary: [], rows: []))
+    )
 
     init() {
         super.init(
@@ -65,7 +79,9 @@ final class HistoryWindow: NSWindow {
 
         // Окно называется тем же словом, что и то, что оно показывает.
         title = "История"
-        minSize = NSSize(width: 260, height: 200)
+        // Строка дня со временем — «2 сентября — 5 сессий, 2 часа 5 минут» —
+        // самое длинное, что окно показывает; уже неё сужать нечего.
+        minSize = NSSize(width: 300, height: 220)
         // Сворачивать нечего: окно открывают, читают и закрывают. Свёрнутое
         // окно было бы ещё одним состоянием, из которого пункт меню обязан
         // его доставать, — поэтому кнопки сворачивания у окна нет.
@@ -90,14 +106,14 @@ final class HistoryWindow: NSWindow {
     }
 
     /// Строки без окна: содержимое меняется, а само окно не двигается.
-    func render(rows: [String]) {
-        content.rootView = HistoryView(rows: rows)
+    func render(content: HistoryContent) {
+        self.content.rootView = HistoryView(content: content)
     }
 
-    /// Показывает окно с этими строками. Содержимое пересобирается на каждый
-    /// щелчок: пока окно было закрыто, история могла подрасти.
-    func show(rows: [String]) {
-        render(rows: rows)
+    /// Показывает окно с этим содержимым. Оно пересобирается на каждый щелчок:
+    /// пока окно было закрыто, история могла подрасти.
+    func show(content: HistoryContent) {
+        render(content: content)
         // Приложение фоновое (.accessory), поэтому окно надо не только
         // показать, но и вывести вперёд — иначе оно откроется за чужими окнами.
         NSApp.activate(ignoringOtherApps: true)
@@ -119,14 +135,14 @@ final class HistoryWindow: NSWindow {
     }
 }
 
-/// Список дней. Строки ничего не делают по щелчку: они сообщают, а не
+/// Итог и список дней. Строки ничего не делают по щелчку: они сообщают, а не
 /// действуют, — поэтому это текст, а не список с выделением.
 struct HistoryView: View {
 
-    let rows: [String]
+    let content: HistoryContent
 
     var body: some View {
-        if rows.isEmpty {
+        if content.rows.isEmpty {
             // Пустое окно человек читает как поломку, поэтому у пустой истории
             // есть своя строка.
             Text(TallyLabel.empty)
@@ -135,17 +151,40 @@ struct HistoryView: View {
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 6) {
-                    // Ключ — место в списке, а не сама строка: две одинаковые
-                    // строки список бы перепутал.
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        Text(row)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+            VStack(alignment: .leading, spacing: 0) {
+                // Итог не уезжает вместе со списком: он про всю историю, а не
+                // про то место, до которого долистали.
+                summary
+                Divider()
+                days
             }
+        }
+    }
+
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(content.summary.enumerated()), id: \.offset) { place, line in
+                // Первая строка — «Всего»: с неё читают, и она главная.
+                Text(line)
+                    .font(place == 0 ? .headline : .body)
+                    .foregroundStyle(place == 0 ? .primary : .secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+    }
+
+    private var days: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 6) {
+                // Ключ — место в списке, а не сама строка: две одинаковые
+                // строки список бы перепутал.
+                ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
+                    Text(row)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
         }
     }
 }

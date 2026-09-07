@@ -21,7 +21,10 @@ public struct Durations: Equatable {
     /// Пределы разумного. Ими проверяется хранилище, а не меню: в меню строки
     /// заведомо разумные, а `defaults write` правит человек и портит случай.
     /// Помидор в ноль секунд звенел бы без остановки.
-    private static let sanePomodoro: ClosedRange<TimeInterval> = 60...(120 * 60)
+    ///
+    /// Пределы помидора спрашивает и `History`: время дня — сумма его
+    /// помидоров, и разумно оно ровно настолько же.
+    public static let sanePomodoro: ClosedRange<TimeInterval> = 60...(120 * 60)
     private static let saneBreak: ClosedRange<TimeInterval> = 60...(60 * 60)
 
     private static let pomodoroKey = "pomodoro"
@@ -70,18 +73,7 @@ public enum DurationLabel {
     public static func minutes(_ interval: TimeInterval) -> String {
         // Округляем вверх: полторы минуты — «2 минуты», ноль минут не название.
         let count = max(1, Int(ceil(interval / 60)))
-        return "\(count) \(noun(for: count))"
-    }
-
-    private static func noun(for count: Int) -> String {
-        // Второй десяток склоняется не как остальные: одиннадцать минут, но
-        // двадцать одна минута.
-        if (11...14).contains(count % 100) { return "минут" }
-        switch count % 10 {
-        case 1: return "минута"
-        case 2, 3, 4: return "минуты"
-        default: return "минут"
-        }
+        return "\(count) \(Plural.of(count, "минута", "минуты", "минут"))"
     }
 }
 
@@ -89,7 +81,10 @@ public enum DurationLabel {
 /// Mac спит, счётчик тикать перестаёт, а дата остаётся верной.
 public enum Phase: Equatable {
     case idle
-    case pomodoro(until: Date)
+    /// Помидор держит и длину, а не только дату финиша: длину записывает в
+    /// историю финиш, а к тому времени выбранная в меню может быть уже другой —
+    /// смена длины идущий интервал не трогает.
+    case pomodoro(until: Date, length: TimeInterval)
     /// Помидор кончился, на экране цитата и кнопка «Отдохнуть».
     case awaitingBreak
     case onBreak(until: Date)
@@ -99,7 +94,8 @@ public enum Phase: Equatable {
 
 /// Что должно произойти снаружи автомата: звук, окно, всё остальное — не его дело.
 public enum Effect: Equatable {
-    case pomodoroFinished
+    /// Длина закончившегося помидора — то, что запишет в историю день.
+    case pomodoroFinished(length: TimeInterval)
     case breakFinished
     case dismissOverlay
 }
@@ -136,10 +132,10 @@ public struct TimerMachine {
     public mutating func start(at now: Date) -> [Effect] {
         switch phase {
         case .idle:
-            phase = .pomodoro(until: now + durations.pomodoro)
+            phase = .pomodoro(until: now + durations.pomodoro, length: durations.pomodoro)
             return []
         case .awaitingPomodoro:
-            phase = .pomodoro(until: now + durations.pomodoro)
+            phase = .pomodoro(until: now + durations.pomodoro, length: durations.pomodoro)
             return [.dismissOverlay]
         case .pomodoro, .awaitingBreak, .onBreak:
             return []
@@ -192,14 +188,14 @@ public struct TimerMachine {
     /// сводятся к вопросу «сколько времени прошло с даты финиша».
     public mutating func advance(to now: Date) -> [Effect] {
         switch phase {
-        case .pomodoro(let until):
+        case .pomodoro(let until, let length):
             guard now >= until else { return [] }
             guard now.timeIntervalSince(until) <= Self.overdueGrace else {
                 phase = .idle
                 return []
             }
             phase = .awaitingBreak
-            return [.pomodoroFinished]
+            return [.pomodoroFinished(length: length)]
 
         case .onBreak(let until):
             guard now >= until else { return [] }
@@ -218,7 +214,7 @@ public struct TimerMachine {
     /// Сколько осталось до финиша. `nil` — отсчёта сейчас нет.
     public func remaining(at now: Date) -> TimeInterval? {
         switch phase {
-        case .pomodoro(let until), .onBreak(let until):
+        case .pomodoro(let until, _), .onBreak(let until):
             return max(0, until.timeIntervalSince(now))
         case .idle, .awaitingBreak, .awaitingPomodoro:
             return nil

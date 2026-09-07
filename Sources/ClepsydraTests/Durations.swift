@@ -40,9 +40,9 @@ func checkDurations(_ t: Runner) {
         var machine = TimerMachine(durations: Durations(pomodoro: 45 * 60, breakInterval: 15 * 60))
         _ = machine.start(at: t0)
 
-        t.expect(machine.phase, .pomodoro(until: after(45 * 60)))
+        t.expect(machine.phase, .pomodoro(until: after(45 * 60), length: 45 * 60))
         t.expect(machine.advance(to: after(25 * 60)), [], "прежние 25 минут больше ничего не значат")
-        t.expect(machine.advance(to: after(45 * 60)), [.pomodoroFinished])
+        t.expect(machine.advance(to: after(45 * 60)), [.pomodoroFinished(length: 45 * 60)])
     }
 
     t.test("Перерыв идёт столько, сколько выбрали") {
@@ -59,7 +59,8 @@ func checkDurations(_ t: Runner) {
         var machine = TimerMachine(durations: Durations(pomodoro: 15 * 60, breakInterval: 5 * 60))
         _ = machine.start(at: t0)
 
-        t.expect(machine.advance(to: after(15 * 60 + 20)), [.pomodoroFinished], "подтормозивший тик — не сон")
+        t.expect(machine.advance(to: after(15 * 60 + 20)), [.pomodoroFinished(length: 15 * 60)],
+                 "подтормозивший тик — не сон")
 
         var slept = TimerMachine(durations: Durations(pomodoro: 15 * 60, breakInterval: 5 * 60))
         _ = slept.start(at: t0)
@@ -75,9 +76,13 @@ func checkDurations(_ t: Runner) {
 
         machine.durations = Durations(pomodoro: 45 * 60, breakInterval: 5 * 60)
 
-        t.expect(machine.phase, .pomodoro(until: after(25 * 60)), "финиш уже назначен, и он не переезжает")
+        t.expect(machine.phase, .pomodoro(until: after(25 * 60), length: 25 * 60),
+                 "финиш уже назначен, и он не переезжает")
         t.expect(machine.remaining(at: after(60)), 24 * 60)
-        t.expect(machine.advance(to: after(25 * 60)), [.pomodoroFinished], "звеним, когда обещали")
+        t.expect(machine.advance(to: after(25 * 60)), [.pomodoroFinished(length: 25 * 60)],
+                 "звеним, когда обещали")
+        // Записывать в историю 45 минут значило бы записать помидор, которого
+        // не было: выбор посреди помидора его не тронул.
     }
 
     t.test("Смена длительности не сдвигает идущий перерыв") {
@@ -100,7 +105,8 @@ func checkDurations(_ t: Runner) {
 
         _ = machine.advance(to: after(40 * 60))
         _ = machine.start(at: after(40 * 60))
-        t.expect(machine.phase, .pomodoro(until: after(85 * 60)), "и следующий помидор тоже")
+        t.expect(machine.phase, .pomodoro(until: after(85 * 60), length: 45 * 60),
+                 "и следующий помидор тоже")
     }
 
     t.test("Смена длительности в простое ничего не запускает") {

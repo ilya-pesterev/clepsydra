@@ -121,11 +121,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func apply(_ effect: Effect) {
         switch effect {
-        case .pomodoroFinished:
+        case .pomodoroFinished(let length):
             // Считается только доведённый до конца помидор: сброшенный потерян
             // целиком (ADR-0003), просроченный во сне отменён молча (ADR-0002),
             // и сюда ни тот, ни другой не приходят.
-            history.record(at: Date())
+            //
+            // Длину берём у закончившегося помидора, а не у выбранной сейчас:
+            // выбрать в меню другую могли посреди этого же помидора, и его она
+            // не тронула.
+            history.record(length: length, at: Date())
             Settings.history = history
             // Окно, открытое прямо сейчас, обязано узнать про этот помидор:
             // иначе оно и строка в меню разойдутся в числах.

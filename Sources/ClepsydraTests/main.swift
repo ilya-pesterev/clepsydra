@@ -44,7 +44,7 @@ t.test("Старт ставит финиш на 25 минут вперёд") {
     var machine = TimerMachine()
     let effects = machine.start(at: t0)
 
-    t.expect(machine.phase, .pomodoro(until: after(25 * 60)))
+    t.expect(machine.phase, .pomodoro(until: after(25 * 60), length: 25 * 60))
     t.expect(effects, [])
     t.expect(machine.remaining(at: after(60)), 24 * 60)
 }
@@ -54,7 +54,7 @@ t.test("Помидор дошёл до нуля — просим отдохну�
     _ = machine.start(at: t0)
 
     t.expect(machine.advance(to: after(25 * 60 - 1)), [], "за секунду до конца ничего не происходит")
-    t.expect(machine.advance(to: after(25 * 60)), [.pomodoroFinished])
+    t.expect(machine.advance(to: after(25 * 60)), [.pomodoroFinished(length: 25 * 60)])
     t.expect(machine.phase, .awaitingBreak)
     t.expect(machine.remaining(at: after(25 * 60)), nil, "на экране с цитатой отсчёта нет")
 }
@@ -94,7 +94,7 @@ t.test("Круг замыкается: «Начать» с экрана посл
     let effects = machine.start(at: t0)
 
     t.expect(effects, [.dismissOverlay], "экран убираем — помидор уже пошёл")
-    t.expect(machine.phase, .pomodoro(until: after(25 * 60)))
+    t.expect(machine.phase, .pomodoro(until: after(25 * 60), length: 25 * 60))
 }
 
 // MARK: Выходы из круга
@@ -147,7 +147,7 @@ t.test("⌘⇧0 без экрана ничего не делает") {
     _ = machine.start(at: t0)
 
     t.expect(machine.escape(), [], "идущий помидор комбинацией не отменяют — для этого «Сбросить»")
-    t.expect(machine.phase, .pomodoro(until: after(25 * 60)))
+    t.expect(machine.phase, .pomodoro(until: after(25 * 60), length: 25 * 60))
 }
 
 // MARK: Сон
@@ -175,7 +175,7 @@ t.test("Опоздавший тик в пределах допуска — эт�
     _ = machine.start(at: t0)
 
     // Система подтормозила, тик пришёл на 20 секунд позже.
-    t.expect(machine.advance(to: after(25 * 60 + 20)), [.pomodoroFinished])
+    t.expect(machine.advance(to: after(25 * 60 + 20)), [.pomodoroFinished(length: 25 * 60)])
     t.expect(machine.phase, .awaitingBreak)
 }
 
@@ -193,7 +193,7 @@ t.test("Повторный старт не сдвигает финиш") {
     _ = machine.start(at: t0)
 
     t.expect(machine.start(at: after(60)), [])
-    t.expect(machine.phase, .pomodoro(until: after(25 * 60)))
+    t.expect(machine.phase, .pomodoro(until: after(25 * 60), length: 25 * 60))
 }
 
 t.test("«Отдохнуть» вне экрана ничего не делает") {
@@ -201,7 +201,7 @@ t.test("«Отдохнуть» вне экрана ничего не делае�
     _ = machine.start(at: t0)
 
     t.expect(machine.takeBreak(at: after(60)), [])
-    t.expect(machine.phase, .pomodoro(until: after(25 * 60)))
+    t.expect(machine.phase, .pomodoro(until: after(25 * 60), length: 25 * 60))
 }
 
 t.test("Под экраном сброса нет") {
@@ -318,34 +318,34 @@ t.test("Новая история пуста") {
 
 t.test("Закрытый помидор увеличивает счёт") {
     var history = History()
-    history.record(at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
 
     t.expect(history.sessions(at: noon, calendar: utc), 1)
 }
 
 t.test("Помидоры за один день складываются") {
     var history = History()
-    history.record(at: noon, calendar: utc)
-    history.record(at: noon.addingTimeInterval(30 * 60), calendar: utc)
-    history.record(at: noon.addingTimeInterval(60 * 60), calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: noon.addingTimeInterval(30 * 60), calendar: utc)
+    history.record(length: 25 * 60, at: noon.addingTimeInterval(60 * 60), calendar: utc)
 
     t.expect(history.sessions(at: noon.addingTimeInterval(60 * 60), calendar: utc), 3)
 }
 
 t.test("Новый день считается с единицы") {
     var history = History()
-    history.record(at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
 
     t.expect(history.sessions(at: nextMorning, calendar: utc), 0, "вчерашнее число сегодня не показываем")
 
-    history.record(at: nextMorning, calendar: utc)
+    history.record(length: 25 * 60, at: nextMorning, calendar: utc)
     t.expect(history.sessions(at: nextMorning, calendar: utc), 1, "новый день считается с единицы")
 }
 
 t.test("Вчерашний день полночь не стирает") {
     var history = History()
-    history.record(at: noon, calendar: utc)
-    history.record(at: nextMorning, calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: nextMorning, calendar: utc)
 
     t.expect(history.sessions(on: Day(of: noon, calendar: utc)), 1, "вчера осталось в истории")
     t.expect(history.sessions(on: Day(of: nextMorning, calendar: utc)), 1, "сегодня считается отдельно")
@@ -353,10 +353,10 @@ t.test("Вчерашний день полночь не стирает") {
 
 t.test("День без помидоров в истории не появляется") {
     var history = History()
-    history.record(at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
 
     // Между этими днями сутки, в которые не закрыто ничего.
-    history.record(at: noon.addingTimeInterval(48 * 3600), calendar: utc)
+    history.record(length: 25 * 60, at: noon.addingTimeInterval(48 * 3600), calendar: utc)
 
     t.expect(history.stored.count, 2, "пустые сутки в хранилище не попадают")
 }
@@ -364,7 +364,7 @@ t.test("День без помидоров в истории не появляе
 t.test("Ночной помидор до полуночи достаётся вчерашнему дню") {
     var history = History()
     let beforeMidnight = noon.addingTimeInterval(11 * 3600 + 59 * 60)
-    history.record(at: beforeMidnight, calendar: utc)
+    history.record(length: 25 * 60, at: beforeMidnight, calendar: utc)
 
     t.expect(history.sessions(at: beforeMidnight, calendar: utc), 1)
     t.expect(history.sessions(at: beforeMidnight.addingTimeInterval(120), calendar: utc), 0)
@@ -372,9 +372,9 @@ t.test("Ночной помидор до полуночи достаётся в�
 
 t.test("История переживает перезапуск") {
     var history = History()
-    history.record(at: noon, calendar: utc)
-    history.record(at: noon, calendar: utc)
-    history.record(at: nextMorning, calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: noon, calendar: utc)
+    history.record(length: 25 * 60, at: nextMorning, calendar: utc)
 
     let restored = History(stored: history.stored)
     t.expect(restored, history, "хранимый вид восстанавливается без потерь")
@@ -383,10 +383,19 @@ t.test("История переживает перезапуск") {
 }
 
 t.test("Испорченное хранилище не роняет историю") {
-    let history = History(stored: ["20231114": 2, "позавчера": 3, "20231115": 0, "0": 4, "20231116": "три"])
+    let history = History(stored: ["20231114": 2, "позавчера": 3, "20231115": 0, "20231116": "три"])
 
     t.expect(history.stored as NSDictionary, ["20231114": 2] as NSDictionary,
              "в историю попадают только дни с помидорами")
+    t.expect(history.days.count, 1)
+}
+
+t.test("День, записанный не под числом, историей не считается") {
+    // Ключ — день числом; всё остальное записью о дне не является, и понимать
+    // его не по чему. Число, на дату не похожее, — другое дело: счёт под ним
+    // настоящий, и хранилище его сохраняет, см. «Но из хранилища такой день не
+    // пропадает».
+    t.expect(History(stored: ["позавчера": 3]), History())
 }
 
 t.test("Прежний счёт переезжает в историю") {
@@ -411,8 +420,8 @@ t.test("Смена часового пояса счёт не стирает") {
     // Полдень в Москве и в Лондоне — один и тот же день календаря, хотя сутки
     // там начались в разные моменты.
     var history = History()
-    history.record(at: noon, calendar: moscow)
-    history.record(at: noon.addingTimeInterval(60), calendar: london)
+    history.record(length: 25 * 60, at: noon, calendar: moscow)
+    history.record(length: 25 * 60, at: noon.addingTimeInterval(60), calendar: london)
 
     t.expect(history.sessions(at: noon, calendar: london), 2, "перелёт среди дня — не новый день")
     t.expect(history.stored.count, 1, "второй записи за тот же день не появилось")
@@ -560,6 +569,7 @@ t.test("Дни сравниваются как даты") {
 }
 
 checkDurations(t)
+checkHistoryTime(t)
 checkBuildNumber(t)
 checkDmgName(t)
 checkReleaseTag(t)
