@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastSticker: StickerQuote?
     private var mode: QuoteMode = Settings.quoteMode
     private var history: History = Settings.history
+    private var historyWindow: HistoryController!
     private let updates = UpdateChecker()
     private var installer: UpdateInstaller!
 
@@ -23,12 +24,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updates.openReleasePage()
         })
 
+        // Окно «История». Как и установщик, до первого щелчка по пункту меню
+        // ничего не делает: окна не заводится, пока его не попросили.
+        historyWindow = HistoryController(history: { [weak self] in
+            self?.history ?? History()
+        })
+
         statusItem = StatusItemController(actions: .init(
             start: { [weak self] in self?.update { $0.start(at: Date()) } },
             reset: { [weak self] in self?.update { $0.reset() } },
             setDurations: { [weak self] in self?.setDurations($0) },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
             setMode: { [weak self] in self?.setMode($0) },
+            showHistory: { [weak self] in self?.historyWindow.show() },
             checkForUpdates: { [weak self] in self?.updates.checkNow() },
             installUpdate: { [weak self] in self?.installer.install() },
             showAbout: { About.show() },
@@ -119,6 +127,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // и сюда ни тот, ни другой не приходят.
             history.record(at: Date())
             Settings.history = history
+            // Окно, открытое прямо сейчас, обязано узнать про этот помидор:
+            // иначе оно и строка в меню разойдутся в числах.
+            historyWindow.refresh()
 
             Sounds.pomodoroFinished()
             showOverlay(actions: [

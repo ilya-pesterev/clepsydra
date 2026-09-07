@@ -12,23 +12,17 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let setDurations: (Durations) -> Void
         let toggleLaunchAtLogin: () -> Void
         let setMode: (QuoteMode) -> Void
+        let showHistory: () -> Void
         let checkForUpdates: () -> Void
         let installUpdate: () -> Void
         let showAbout: () -> Void
         let quit: () -> Void
     }
 
-    /// Сколько прошедших дней показывать. Хранение глубину не ограничивает
-    /// (ADR-0006), а меню обязано помещаться на экран — предел ставим здесь.
-    /// Неделя: столько дней человек ещё помнит, и столько строк подменю не
-    /// перерастает даже на ноутбучном экране.
-    private static let recentDaysShown = 7
-
     private let item: NSStatusItem
     private let actions: Actions
     /// Историю спрашиваем в момент открытия меню, а не храним: тогда полночь
-    /// сама сдвигает и счёт за сегодня, и список прошедших дней — без
-    /// будильника на 00:00.
+    /// сама сдвигает счёт за сегодня — без будильника на 00:00.
     private let history: () -> History
     /// Что известно об обновлении — спрашиваем так же, в момент открытия меню:
     /// тихая проверка могла ответить, пока меню было закрыто.
@@ -98,17 +92,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(NSMenuItem(title: tally, action: nil, keyEquivalent: ""))
         }
 
-        // Прошедшие дни — подменю под этой строкой: отдельного окна под них
-        // не заводим, см. ADR-0007.
-        let recent = history.recent(before: today, limit: Self.recentDaysShown)
-        if !recent.isEmpty {
-            menu.addItem(recentDays(recent, relativeTo: today))
-        }
+        // Прошедшие дни живут окном, а не подменю: список не обязан помещаться
+        // в меню, см. ADR-0012. Пункт стоит на месте и при пустой истории —
+        // исчезающий пункт меню человек считает поломкой.
+        menu.addItem(entry("История", #selector(showHistory)))
 
-        // Пока показывать нечего, полоски в пустоте не рисуем.
-        if tally != nil || !recent.isEmpty {
-            menu.addItem(.separator())
-        }
+        menu.addItem(.separator())
 
         // Разделитель ставит тот, кто добавил пункт: иначе в фазах с экраном
         // меню начиналось бы с полоски в пустоте.
@@ -172,19 +161,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return entry(UpdateLabel.title(for: state), #selector(installUpdate))
         }
         return entry(UpdateLabel.title(for: state), #selector(checkForUpdates))
-    }
-
-    /// Подменю с прошедшими днями, свежие сверху. Строки без действия: они
-    /// сообщают, а не действуют, — и сереют сами, как строка про сегодня.
-    /// Пункт с подменю AppKit оставляет доступным и при серых строках внутри.
-    private func recentDays(_ recent: [DayTally], relativeTo today: Day) -> NSMenuItem {
-        let days = NSMenuItem(title: "Последние дни", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        for title in recent.compactMap({ TallyLabel.past($0, relativeTo: today) }) {
-            submenu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
-        }
-        days.submenu = submenu
-        return days
     }
 
     /// Подменю с длинами: сначала помидор, потом перерыв, у выбранных длин —
@@ -251,6 +227,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func selectStatham() { actions.setMode(.statham) }
     @objc private func checkForUpdates() { actions.checkForUpdates() }
     @objc private func installUpdate() { actions.installUpdate() }
+    @objc private func showHistory() { actions.showHistory() }
     @objc private func showAbout() { actions.showAbout() }
     @objc private func quit() { actions.quit() }
 }
