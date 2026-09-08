@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var historyWindow: HistoryController!
     private let updates = UpdateChecker()
     private var installer: UpdateInstaller!
+    private var reminder: ReminderVoice!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -30,11 +31,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.history ?? History()
         })
 
+        // Напоминание. Заводится тут, но пока его не включили — молчит: ни
+        // разрешений в лицо при запуске, ни уведомлений (ADR-0014).
+        reminder = ReminderVoice(start: { [weak self] in
+            self?.update { $0.start(at: Date()) }
+        })
+
         statusItem = StatusItemController(actions: .init(
             start: { [weak self] in self?.update { $0.start(at: Date()) } },
             reset: { [weak self] in self?.update { $0.reset() } },
             setDurations: { [weak self] in self?.setDurations($0) },
             toggleLaunchAtLogin: { LaunchAtLogin.toggle() },
+            toggleReminder: { [weak self] in self?.reminder.toggle() },
+            openReminderSettings: { [weak self] in self?.reminder.openSystemSettings() },
             setMode: { [weak self] in self?.setMode($0) },
             showHistory: { [weak self] in self?.historyWindow.show() },
             checkForUpdates: { [weak self] in self?.updates.checkNow() },
@@ -47,6 +56,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updates.state ?? .unknown
         }, durations: { [weak self] in
             self?.machine.durations ?? .standard
+        }, reminderState: { [weak self] in
+            self?.reminder.state ?? .off
         })
 
         // Запасной выход с экрана. Во время перерыва он лишь убирает экран:
@@ -103,6 +114,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // запуске в лицо ничего не проверяется: спросить фид и промолчать — это
         // и есть тихая проверка.
         updates.checkIfDue(now: now)
+        // Напоминание висит на том же тике и по той же причине: вопрос к нему
+        // тот же — сколько прошло, — и сон оно переживает так же.
+        reminder.advance(to: now, phase: machine.phase)
     }
 
     @objc private func screensChanged() {

@@ -11,6 +11,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let reset: () -> Void
         let setDurations: (Durations) -> Void
         let toggleLaunchAtLogin: () -> Void
+        let toggleReminder: () -> Void
+        let openReminderSettings: () -> Void
         let setMode: (QuoteMode) -> Void
         let showHistory: () -> Void
         let checkForUpdates: () -> Void
@@ -31,18 +33,25 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// длину правят и мимо меню (ADR-0011), и до перезапуска автомат живёт со
     /// старой. Галочка обязана стоять у той длины, по которой идёт отсчёт.
     private let durations: () -> Durations
+    /// Что известно про напоминание. Спрашиваем в момент открытия меню, но
+    /// ответ приходит из кэша: разрешение сверяется с системой на тике, раз в
+    /// минуту, — спрашивать её на открытии меню значило бы ждать ответа с
+    /// нарисованным пунктом.
+    private let reminderState: () -> ReminderState
     private var phase: Phase = .idle
 
     init(
         actions: Actions,
         history: @escaping () -> History,
         updateState: @escaping () -> UpdateState,
-        durations: @escaping () -> Durations
+        durations: @escaping () -> Durations,
+        reminderState: @escaping () -> ReminderState
     ) {
         self.actions = actions
         self.history = history
         self.updateState = updateState
         self.durations = durations
+        self.reminderState = reminderState
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -133,6 +142,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        // Переключателей в корне меню два: напоминание и запуск при входе.
+        // Окна настроек это не заводит — ADR-0011 в силе.
+        menu.addItem(reminderEntry())
+
         let launch = entry("Запускать при входе", #selector(toggleLaunchAtLogin))
         launch.state = LaunchAtLogin.isEnabled ? .on : .off
         menu.addItem(launch)
@@ -161,6 +174,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return entry(UpdateLabel.title(for: state), #selector(installUpdate))
         }
         return entry(UpdateLabel.title(for: state), #selector(checkForUpdates))
+    }
+
+    /// Пункт напоминания. Лиц у него, как у пункта обновления, больше одного:
+    /// разрешение отзывают в системных настройках, и включённый пункт при
+    /// отозванном разрешении — молчащее напоминание, которое человек считает
+    /// поломкой (ADR-0014). Третье лицо ведёт туда, где запрет и снимают.
+    private func reminderEntry() -> NSMenuItem {
+        let state = reminderState()
+        let action = state == .silenced
+            ? #selector(openReminderSettings) : #selector(toggleReminder)
+        let item = entry(ReminderLabel.menu(for: state), action)
+        item.state = ReminderLabel.isOn(state) ? .on : .off
+        return item
     }
 
     /// Подменю с длинами: сначала помидор, потом перерыв, у выбранных длин —
@@ -223,6 +249,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() { actions.toggleLaunchAtLogin() }
+    @objc private func toggleReminder() { actions.toggleReminder() }
+    @objc private func openReminderSettings() { actions.openReminderSettings() }
     @objc private func selectPhilosophers() { actions.setMode(.philosophers) }
     @objc private func selectStatham() { actions.setMode(.statham) }
     @objc private func checkForUpdates() { actions.checkForUpdates() }

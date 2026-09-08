@@ -583,5 +583,6 @@ checkUpdateFeed(t)
 checkSignUpdate(t)
 checkInstallerFeed(t)
 checkUpdateInstaller(t)
+checkReminder(t)
 
 t.finish()

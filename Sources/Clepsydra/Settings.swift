@@ -2,12 +2,14 @@ import Foundation
 import ClepsydraCore
 
 /// То немногое, что переживает перезапуск: выбранные длительности, режим цитат,
-/// история по дням и результат последней проверки обновлений. Запуск при входе
-/// живёт в системе, а не здесь.
+/// напоминание, история по дням и результат последней проверки обновлений.
+/// Запуск при входе живёт в системе, а не здесь; там же живёт и разрешение на
+/// уведомления — здесь только то, что человек выбрал сам.
 enum Settings {
 
     private static let durationsKey = "durations"
     private static let modeKey = "quoteMode"
+    private static let reminderKey = "reminder"
     private static let historyKey = "history"
     private static let lastUpdateCheckKey = "lastUpdateCheck"
     private static let knownUpdateKey = "knownUpdate"
@@ -35,6 +37,17 @@ enum Settings {
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: modeKey)
         }
+    }
+
+    /// Включено ли напоминание. Выключено по умолчанию: обновившаяся копия не
+    /// начинает говорить с теми, кто об этом не просил (ADR-0014).
+    ///
+    /// Разрешение системы здесь не хранится — его спрашивают у системы, см.
+    /// `Reminders`. Включённый выбор при отозванном разрешении не врёт: пункт
+    /// меню показывает третье лицо, а не галочку.
+    static var reminderIsOn: Bool {
+        get { UserDefaults.standard.bool(forKey: reminderKey) }
+        set { UserDefaults.standard.set(newValue, forKey: reminderKey) }
     }
 
     /// История хранится словарём «день — счёт»: приложение копит числа по дням
